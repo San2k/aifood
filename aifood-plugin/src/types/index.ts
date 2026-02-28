@@ -4,7 +4,7 @@
 
 // Plugin configuration
 export interface PluginConfig {
-  databaseUrl: string;
+  databaseUrl?: string;
   // FatSecret API (optional, for future use)
   fatsecretClientId?: string;
   fatsecretClientSecret?: string;
