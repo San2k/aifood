@@ -2,27 +2,18 @@
   "id": "aifood",
   "name": "AiFood Nutrition Tracker",
   "version": "1.0.0",
-  "description": "Track your nutrition with FatSecret database - log meals, get reports, and receive AI-powered dietary advice",
+  "description": "Track your nutrition - log meals, get reports, and receive AI-powered dietary advice",
   "author": "AiFood",
   "homepage": "https://github.com/San2k/aifood",
   "skills": ["./skills"],
   "configSchema": {
     "type": "object",
     "properties": {
-      "fatsecretClientId": {
-        "type": "string",
-        "description": "FatSecret API Client ID"
-      },
-      "fatsecretClientSecret": {
-        "type": "string",
-        "description": "FatSecret API Client Secret"
-      },
       "databaseUrl": {
         "type": "string",
         "description": "PostgreSQL connection URL",
-        "default": "postgresql://localhost:5432/aifood"
+        "default": "postgresql://localhost:5433/aifood"
       }
-    },
-    "required": ["fatsecretClientId", "fatsecretClientSecret"]
+    }
   }
 }

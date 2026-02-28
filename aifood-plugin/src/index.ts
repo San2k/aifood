@@ -1,12 +1,10 @@
 /**
  * AiFood OpenClaw Plugin
- * Nutrition tracking with FatSecret database integration
+ * Nutrition tracking plugin
  */
 
-import { FatSecretClient } from './services/fatsecret.js';
 import { DatabaseService } from './services/database.js';
-import { createLogFoodTool } from './tools/log-food.js';
-import { createSearchFoodTool } from './tools/search-food.js';
+import { createLogFoodManualTool } from './tools/log-food-manual.js';
 import { createDailyReportTool } from './tools/daily-report.js';
 import { createWeeklyReportTool } from './tools/weekly-report.js';
 import { createSetGoalsTool } from './tools/set-goals.js';
@@ -27,26 +25,14 @@ interface OpenClawAPI {
   getConfig(): PluginConfig;
 }
 
-let fatsecret: FatSecretClient | null = null;
 let db: DatabaseService | null = null;
 
 export default async function register(api: OpenClawAPI) {
   const config = api.getConfig();
 
-  // Validate required config
-  if (!config.fatsecretClientId || !config.fatsecretClientSecret) {
-    console.error('AiFood: Missing FatSecret API credentials in config');
-    return;
-  }
-
-  // Initialize services
-  fatsecret = new FatSecretClient({
-    fatsecretClientId: config.fatsecretClientId,
-    fatsecretClientSecret: config.fatsecretClientSecret,
-  });
-
+  // Initialize database
   db = new DatabaseService({
-    databaseUrl: config.databaseUrl || 'postgresql://localhost:5432/aifood',
+    databaseUrl: config.databaseUrl || 'postgresql://localhost:5433/aifood',
   });
 
   // Initialize database tables
@@ -59,13 +45,12 @@ export default async function register(api: OpenClawAPI) {
   }
 
   // Register tools
-  api.registerTool(createLogFoodTool(fatsecret, db));
-  api.registerTool(createSearchFoodTool(fatsecret));
+  api.registerTool(createLogFoodManualTool(db));
   api.registerTool(createDailyReportTool(db));
   api.registerTool(createWeeklyReportTool(db));
   api.registerTool(createSetGoalsTool(db));
 
-  console.log('AiFood: Plugin registered with 5 tools');
+  console.log('AiFood: Plugin registered with 4 tools');
 }
 
 // Cleanup on unload
