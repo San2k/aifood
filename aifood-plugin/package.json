@@ -1,5 +1,5 @@
 {
-  "name": "@aifood/openclaw-plugin",
+  "name": "aifood",
   "version": "1.0.0",
   "description": "OpenClaw plugin for nutrition tracking with FatSecret API",
   "main": "dist/index.js",
