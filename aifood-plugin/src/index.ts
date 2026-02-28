@@ -12,13 +12,18 @@ import { createWeeklyReportTool } from './tools/weekly-report.js';
 import { createSetGoalsTool } from './tools/set-goals.js';
 import type { PluginConfig } from './types/index.js';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolHandler = (params: any, ctx: { odentity: string }) => Promise<unknown>;
+
+interface OpenClawTool {
+  name: string;
+  description: string;
+  parameters?: Record<string, unknown>;
+  handler: ToolHandler;
+}
+
 interface OpenClawAPI {
-  registerTool(tool: {
-    name: string;
-    description: string;
-    parameters?: Record<string, unknown>;
-    handler: (params: unknown, ctx: { odentity: string }) => Promise<unknown>;
-  }): void;
+  registerTool(tool: OpenClawTool): void;
   getConfig(): PluginConfig;
 }
 

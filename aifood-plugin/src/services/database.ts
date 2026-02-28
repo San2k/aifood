@@ -71,7 +71,7 @@ export class DatabaseService {
    * Log a food entry
    */
   async logFood(entry: Omit<FoodLogEntry, 'id' | 'createdAt' | 'isDeleted'>): Promise<FoodLogEntry> {
-    const result = await this.pool.query<FoodLogEntry>(
+    const result = await this.pool.query(
       `INSERT INTO food_log_entry (
         odentity, food_id, food_name, brand_name, serving_id, serving_description,
         serving_size, serving_unit, number_of_servings, calories, protein,
@@ -100,7 +100,7 @@ export class DatabaseService {
       ]
     );
 
-    return this.mapRowToEntry(result.rows[0]);
+    return this.mapRowToEntry(result.rows[0] as Record<string, unknown>);
   }
 
   /**

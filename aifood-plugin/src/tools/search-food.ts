@@ -24,7 +24,7 @@ export function createSearchFoodTool(fatsecret: FatSecretClient) {
       },
       required: ['query'],
     },
-    handler: async (params: SearchFoodParams) => {
+    handler: async (params: SearchFoodParams, _ctx: { odentity: string }) => {
       const { query, maxResults = 5 } = params;
 
       // Search foods
