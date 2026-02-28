@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aifood-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aifood
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aifood_secure_password_2024}
+      POSTGRES_DB: aifood
+    volumes:
+      - aifood_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflict with other postgres instances
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aifood -d aifood"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  aifood_postgres_data:
+    driver: local

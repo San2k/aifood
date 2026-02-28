@@ -8,50 +8,48 @@ echo "=== AiFood Server Initial Setup ==="
 echo "Server: $(hostname)"
 echo ""
 
-# Update system
-echo "Updating system packages..."
-sudo apt-get update
-sudo apt-get upgrade -y
+# Check Docker
+if ! command -v docker &> /dev/null; then
+    echo "ERROR: Docker is required but not installed!"
+    echo "Install Docker first: https://docs.docker.com/engine/install/"
+    exit 1
+fi
 
-# Install essentials
-echo "Installing essential packages..."
-sudo apt-get install -y \
-    curl \
-    git \
-    build-essential \
-    ca-certificates \
-    gnupg
+echo "Docker: $(docker --version)"
 
-# Install Node.js 20
-echo "Installing Node.js 20..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
+# Install Node.js if needed
+if ! command -v node &> /dev/null; then
+    echo "Installing Node.js 20..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+fi
 
 echo "Node.js: $(node --version)"
 echo "npm: $(npm --version)"
-
-# Install PostgreSQL
-echo "Installing PostgreSQL..."
-sudo apt-get install -y postgresql postgresql-contrib
-
-# Start PostgreSQL
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# Create database and user
-echo "Setting up PostgreSQL database..."
-sudo -u postgres psql <<EOF
-CREATE USER aifood WITH PASSWORD 'aifood_secure_password_2024';
-CREATE DATABASE aifood OWNER aifood;
-GRANT ALL PRIVILEGES ON DATABASE aifood TO aifood;
-EOF
 
 # Clone repository
 echo "Cloning repository..."
 sudo mkdir -p /opt/aifood
 sudo chown $USER:$USER /opt/aifood
 cd /opt
-git clone https://github.com/San2k/aifood.git aifood
+if [ -d "/opt/aifood/.git" ]; then
+    echo "Repository already exists, pulling latest..."
+    cd /opt/aifood
+    git fetch origin main
+    git reset --hard origin/main
+else
+    git clone https://github.com/San2k/aifood.git aifood
+    cd /opt/aifood
+fi
+
+# Start PostgreSQL via Docker
+echo "Starting PostgreSQL container..."
+docker compose up -d postgres
+
+# Wait for PostgreSQL
+echo "Waiting for PostgreSQL to be ready..."
+sleep 5
+docker exec aifood-postgres pg_isready -U aifood -d aifood || sleep 10
 
 # Build plugin
 echo "Building plugin..."
@@ -68,4 +66,4 @@ echo "2. Run: openclaw plugins install /opt/aifood/aifood-plugin"
 echo "3. Configure ~/.openclaw/openclaw.json with FatSecret credentials"
 echo ""
 echo "Database connection string:"
-echo "postgresql://aifood:aifood_secure_password_2024@localhost:5432/aifood"
+echo "postgresql://aifood:aifood_secure_password_2024@localhost:5433/aifood"

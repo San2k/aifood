@@ -37,6 +37,13 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            # Start PostgreSQL container if not running
+            if ! docker ps --format '{{.Names}}' | grep -q '^aifood-postgres$'; then
+              echo "Starting PostgreSQL container..."
+              docker compose up -d postgres
+              sleep 5
+            fi
+
             # Install dependencies and build
             cd aifood-plugin
             npm install
