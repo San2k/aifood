@@ -1,0 +1,96 @@
+version: '3.8'
+
+# Production Docker Compose for AiFood
+# Uses isolated network to avoid conflicts with other projects
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aifood_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nutrition_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-nutrition_bot}
+    volumes:
+      - aifood_postgres_data:/var/lib/postgresql/data
+    networks:
+      - aifood_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nutrition_user} -d ${POSTGRES_DB:-nutrition_bot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aifood_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - aifood_redis_data:/data
+    networks:
+      - aifood_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  agent-api:
+    build:
+      context: ./services/agent-api
+      dockerfile: Dockerfile
+    container_name: aifood_agent_api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-nutrition_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nutrition_bot}
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL_TEXT=${OPENAI_MODEL_TEXT:-gpt-4-turbo-preview}
+      - OPENAI_MODEL_VISION=${OPENAI_MODEL_VISION:-gpt-4o}
+      - FATSECRET_CLIENT_ID=${FATSECRET_CLIENT_ID}
+      - FATSECRET_CLIENT_SECRET=${FATSECRET_CLIENT_SECRET}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aifood_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  telegram-bot:
+    build:
+      context: ./services/telegram-bot
+      dockerfile: Dockerfile
+    container_name: aifood_telegram_bot
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - AGENT_API_URL=http://agent-api:8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      agent-api:
+        condition: service_healthy
+    networks:
+      - aifood_network
+
+networks:
+  aifood_network:
+    name: aifood_network
+    driver: bridge
+
+volumes:
+  aifood_postgres_data:
+    name: aifood_postgres_data
+  aifood_redis_data:
+    name: aifood_redis_data

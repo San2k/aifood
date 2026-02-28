@@ -1,0 +1,8 @@
+{
+  "telegram_id": 999999,
+  "username": "test_user",
+  "first_name": "Test",
+  "input_type": "text",
+  "message": "съел 2 яйца",
+  "message_id": 10
+}
