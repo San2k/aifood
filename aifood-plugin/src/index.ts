@@ -3,7 +3,6 @@
  * Nutrition tracking plugin
  */
 
-import { Type } from '@sinclair/typebox';
 import { DatabaseService } from './services/database.js';
 import type { PluginConfig, MealType } from './types/index.js';
 
@@ -27,6 +26,40 @@ interface OpenClawPluginApi {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   registerTool(tool: any, options?: { optional?: boolean }): void;
 }
+
+// JSON Schema definitions (compatible with TypeBox output format)
+const LogFoodSchema = {
+  type: 'object' as const,
+  properties: {
+    foodName: { type: 'string' as const, description: 'Name of the food (e.g., "2 eggs", "chicken breast 150g")' },
+    calories: { type: 'number' as const, description: 'Calories in kcal' },
+    protein: { type: 'number' as const, description: 'Protein in grams' },
+    carbs: { type: 'number' as const, description: 'Carbohydrates in grams' },
+    fat: { type: 'number' as const, description: 'Fat in grams' },
+    fiber: { type: 'number' as const, description: 'Fiber in grams' },
+    meal: { type: 'string' as const, description: 'Meal type: breakfast, lunch, dinner, snack' },
+    date: { type: 'string' as const, description: 'Date in YYYY-MM-DD format. Defaults to today.' },
+  },
+  required: ['foodName', 'calories'] as const,
+};
+
+const DailyReportSchema = {
+  type: 'object' as const,
+  properties: {
+    date: { type: 'string' as const, description: 'Date in YYYY-MM-DD format. Defaults to today.' },
+  },
+};
+
+const SetGoalsSchema = {
+  type: 'object' as const,
+  properties: {
+    calories: { type: 'number' as const, description: 'Daily calorie target' },
+    protein: { type: 'number' as const, description: 'Daily protein target in grams' },
+    carbs: { type: 'number' as const, description: 'Daily carbohydrate target in grams' },
+    fat: { type: 'number' as const, description: 'Daily fat target in grams' },
+    fiber: { type: 'number' as const, description: 'Daily fiber target in grams' },
+  },
+};
 
 let db: DatabaseService | null = null;
 
@@ -69,16 +102,7 @@ export default {
       label: 'Log Food',
       description:
         'Log food consumption with nutritional data. Use this when the user wants to record what they ate.',
-      parameters: Type.Object({
-        foodName: Type.String({ description: 'Name of the food (e.g., "2 eggs", "chicken breast 150g")' }),
-        calories: Type.Number({ description: 'Calories in kcal' }),
-        protein: Type.Optional(Type.Number({ description: 'Protein in grams' })),
-        carbs: Type.Optional(Type.Number({ description: 'Carbohydrates in grams' })),
-        fat: Type.Optional(Type.Number({ description: 'Fat in grams' })),
-        fiber: Type.Optional(Type.Number({ description: 'Fiber in grams' })),
-        meal: Type.Optional(Type.String({ description: 'Meal type: breakfast, lunch, dinner, snack' })),
-        date: Type.Optional(Type.String({ description: 'Date in YYYY-MM-DD format. Defaults to today.' })),
-      }),
+      parameters: LogFoodSchema,
       async execute(
         _toolCallId: string,
         params: {
@@ -152,9 +176,7 @@ export default {
       label: 'Daily Nutrition Report',
       description:
         'Get nutrition summary for today or a specific date. Shows calories, protein, carbs, fat consumed.',
-      parameters: Type.Object({
-        date: Type.Optional(Type.String({ description: 'Date in YYYY-MM-DD format. Defaults to today.' })),
-      }),
+      parameters: DailyReportSchema,
       async execute(
         _toolCallId: string,
         params: { date?: string }
@@ -208,13 +230,7 @@ export default {
       name: 'set_nutrition_goals',
       label: 'Set Nutrition Goals',
       description: 'Set daily nutrition goals for calories, protein, carbs, and fat.',
-      parameters: Type.Object({
-        calories: Type.Optional(Type.Number({ description: 'Daily calorie target' })),
-        protein: Type.Optional(Type.Number({ description: 'Daily protein target in grams' })),
-        carbs: Type.Optional(Type.Number({ description: 'Daily carbohydrate target in grams' })),
-        fat: Type.Optional(Type.Number({ description: 'Daily fat target in grams' })),
-        fiber: Type.Optional(Type.Number({ description: 'Daily fiber target in grams' })),
-      }),
+      parameters: SetGoalsSchema,
       async execute(
         _toolCallId: string,
         params: {
