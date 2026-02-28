@@ -1,84 +1,109 @@
-# AiFood — AI Nutrition Tracking Bot
+# AiFood — OpenClaw Nutrition Plugin
 
-Telegram-бот для отслеживания питания с использованием GPT-4 и FatSecret API.
+OpenClaw плагин для отслеживания питания с использованием FatSecret API.
 
 ## Tech Stack
 
-- **Backend**: Python 3.11, FastAPI, LangGraph
-- **Bot**: aiogram 3
-- **Database**: PostgreSQL 16, SQLAlchemy 2.0 (async), Alembic
-- **Cache**: Redis 7
-- **AI**: OpenAI GPT-4-turbo (text), GPT-4o (vision)
-- **Food Data**: FatSecret API via MCP
-- **Container**: Docker Compose
+- **Runtime**: Node.js 18+, TypeScript
+- **Database**: PostgreSQL
+- **Food Data**: FatSecret API
+- **Platform**: OpenClaw (local AI assistant)
 
 ## Quick Commands
 
-### Запуск
+### Сборка плагина
 ```bash
-./scripts/startup.sh          # Полный запуск (рекомендуется)
-docker-compose up --build -d  # Manual
+cd aifood-plugin
+npm install
+npm run build
 ```
 
-### Остановка
+### Установка в OpenClaw
 ```bash
-./scripts/stop.sh
-docker-compose down
+openclaw plugins install ./aifood-plugin
 ```
 
-### Логи
+### Разработка
 ```bash
-docker-compose logs -f agent-api
-docker-compose logs -f telegram-bot
+cd aifood-plugin
+npm run watch        # TypeScript watch mode
+npm run lint         # ESLint
+npm test             # Jest тесты
 ```
 
-### Миграции БД
+### База данных
 ```bash
-docker-compose exec agent-api alembic upgrade head
-docker-compose exec agent-api alembic revision --autogenerate -m "Description"
-```
-
-### Тестирование
-```bash
-docker-compose exec agent-api pytest
-docker-compose exec agent-api pytest --cov=src --cov-report=html
-docker-compose exec agent-api pytest -v tests/test_api/
-```
-
-### Линтинг
-```bash
-docker-compose exec agent-api black src/
-docker-compose exec agent-api isort src/
-docker-compose exec agent-api flake8 src/
-docker-compose exec agent-api mypy src/
+# PostgreSQL должен быть запущен
+psql -d aifood -c "\dt"
 ```
 
 ## Структура проекта
 
 ```
-services/
-├── agent-api/           # FastAPI + LangGraph backend
-│   ├── src/
-│   │   ├── api/v1/      # REST endpoints
-│   │   ├── graph/       # LangGraph state machine
-│   │   ├── db/          # SQLAlchemy models & repos
-│   │   └── services/    # LLM, MCP, Redis
-│   └── migrations/      # Alembic
-├── telegram-bot/        # aiogram 3
-│   └── src/bot/
-│       ├── handlers/    # Message handlers
-│       └── keyboards/   # Inline keyboards
-└── mcp-fatsecret/       # MCP server for FatSecret
+aifood-plugin/
+├── openclaw.plugin.json      # Манифест плагина
+├── package.json
+├── tsconfig.json
+├── src/
+│   ├── index.ts              # Entry point
+│   ├── types/index.ts        # TypeScript типы
+│   ├── services/
+│   │   ├── fatsecret.ts      # FatSecret API клиент
+│   │   └── database.ts       # PostgreSQL сервис
+│   └── tools/
+│       ├── log-food.ts       # Логирование еды
+│       ├── search-food.ts    # Поиск в FatSecret
+│       ├── daily-report.ts   # Дневной отчёт
+│       ├── weekly-report.ts  # Недельный отчёт
+│       └── set-goals.ts      # Установка целей
+└── skills/
+    └── nutrition-advisor/
+        └── SKILL.md          # AI-советник по питанию
 ```
+
+## OpenClaw Tools
+
+| Tool | Описание |
+|------|----------|
+| `log_food` | Логирование еды с данными из FatSecret |
+| `search_food` | Поиск калорийности и нутриентов |
+| `daily_nutrition_report` | Отчёт за день |
+| `weekly_nutrition_report` | Отчёт за неделю |
+| `set_nutrition_goals` | Установка целей КБЖУ |
 
 ## Ключевые файлы
 
 | Файл | Назначение |
 |------|------------|
-| `services/agent-api/src/graph/graph.py` | LangGraph state machine |
-| `services/agent-api/src/api/v1/endpoints/ingest.py` | Main API endpoint |
-| `services/agent-api/src/config.py` | Configuration |
-| `services/telegram-bot/src/bot/handlers/` | Telegram handlers |
+| `aifood-plugin/src/index.ts` | Entry point, регистрация tools |
+| `aifood-plugin/src/services/fatsecret.ts` | FatSecret API клиент |
+| `aifood-plugin/src/services/database.ts` | PostgreSQL репозиторий |
+| `aifood-plugin/src/tools/log-food.ts` | Основной tool логирования |
+
+## Конфигурация
+
+В `~/.openclaw/openclaw.json`:
+```json
+{
+  "plugins": {
+    "entries": {
+      "aifood": {
+        "config": {
+          "fatsecretClientId": "YOUR_CLIENT_ID",
+          "fatsecretClientSecret": "YOUR_SECRET",
+          "databaseUrl": "postgresql://localhost:5432/aifood"
+        }
+      }
+    }
+  }
+}
+```
+
+## Архив
+
+Старые Python сервисы сохранены в `_archive/`:
+- `_archive/services/` — FastAPI, Telegram bot, MCP
+- `_archive/docker-compose.yml` — Docker конфиги
 
 ## Правила
 

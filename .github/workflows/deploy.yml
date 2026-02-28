@@ -28,7 +28,7 @@ jobs:
           script: |
             set -e
 
-            echo "=== Deploying AiFood ==="
+            echo "=== Deploying AiFood OpenClaw Plugin ==="
 
             # Navigate to project directory
             cd ${{ env.DEPLOY_PATH }}
@@ -37,20 +37,20 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Build and restart containers
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml build --no-cache
-            docker-compose -f docker-compose.prod.yml up -d
+            # Install dependencies and build
+            cd aifood-plugin
+            npm install
+            npm run build
 
-            # Run migrations
-            sleep 10
-            docker-compose -f docker-compose.prod.yml exec -T agent-api alembic upgrade head
-
-            # Cleanup old images
-            docker image prune -f
+            # Reinstall plugin to OpenClaw (if openclaw is installed)
+            if command -v openclaw &> /dev/null; then
+              openclaw plugins install ${{ env.DEPLOY_PATH }}/aifood-plugin
+              echo "Plugin reinstalled to OpenClaw"
+            else
+              echo "OpenClaw not found, skipping plugin installation"
+            fi
 
             echo "=== Deploy complete ==="
-            docker-compose -f docker-compose.prod.yml ps
 
       - name: Notify on failure
         if: failure()

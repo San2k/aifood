@@ -98,3 +98,11 @@ secrets/
 
 # Claude Code plans
 .claude/plans/
+
+# Archive (old Python services)
+_archive/
+
+# Node.js
+node_modules/
+dist/
+*.tsbuildinfo
