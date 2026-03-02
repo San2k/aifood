@@ -145,7 +145,7 @@ PARAMETER num_predict 1024
 {
   "google": {
     "type": "api_key",
-    "key": "AIzaSyA1H3vLr_G2uc6a5d2cJdyOgA9gxy7UpQE"
+    "key": "YOUR_GOOGLE_AI_API_KEY"
   }
 }
 ```
