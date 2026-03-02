@@ -106,3 +106,8 @@ _archive/
 node_modules/
 dist/
 *.tsbuildinfo
+# Status files (могут содержать конфиденциальные данные)
+DEPLOYMENT_STATUS.md
+LABEL_RECOGNITION_COMPLETE.md
+*_STATUS.md
+*_COMPLETE.md
