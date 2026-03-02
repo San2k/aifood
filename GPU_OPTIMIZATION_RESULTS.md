@@ -62,17 +62,21 @@ Memory allocation:
 
 ## Configuration
 
-### Final Modelfile
+### Final Modelfile (Production)
 ```
 FROM qwen2.5:14b-instruct
 
 PARAMETER temperature 0.25
-PARAMETER num_ctx 8192
+PARAMETER num_ctx 4096
 PARAMETER num_predict 1024
 PARAMETER num_gpu 30
 
 SYSTEM You are Qwen, created by Alibaba Cloud. You are a helpful assistant.
 ```
+
+**Note:** `num_ctx` reduced from 8192 to 4096 to fit in 8GB VRAM.
+- 8192 context requires ~3.8 GB KV cache → OOM error
+- 4096 context requires ~1.9 GB KV cache → works reliably
 
 ### OpenClaw Config
 ```json
@@ -80,7 +84,7 @@ SYSTEM You are Qwen, created by Alibaba Cloud. You are a helpful assistant.
   "agents": {
     "defaults": {
       "model": {
-        "primary": "ollama/qwen-14b-gpu-v2:latest",
+        "primary": "ollama/qwen-prod-gpu:latest",
         "fallbacks": ["google/gemini-1.5-flash"]
       }
     }
@@ -95,6 +99,8 @@ SYSTEM You are Qwen, created by Alibaba Cloud. You are a helpful assistant.
   }
 }
 ```
+
+**Model:** `qwen-prod-gpu:latest` (30 GPU layers, 4096 context)
 
 ### Systemd Service
 ```ini
@@ -191,10 +197,13 @@ journalctl -u ollama | grep -i cuda
 - 8GB VRAM insufficient for full GPU acceleration
 - Quantization doesn't help on this setup
 
-**Final Configuration:**
-- **Model:** `qwen-14b-gpu-v2:latest`
+**Final Configuration (UPDATED):**
+- **Model:** `qwen-prod-gpu:latest`
 - **GPU layers:** 30/49 (61%)
-- **Performance:** 3.09 sec average response time
+- **Context window:** 4096 tokens (reduced from 8192 to fit in 8GB VRAM)
+- **Performance:** 6.03 sec average response time
+- **Memory usage:** 7.4 GB / 8.0 GB ✅
+- **Status:** Stable, no OOM errors
 
 **Next Steps:**
 1. ~~Test quantized model~~ ✅ Completed - slower than full model
