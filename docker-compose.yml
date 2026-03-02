@@ -19,6 +19,66 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: aifood-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - aifood_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ocr-service:
+    build:
+      context: ./services/ocr-service
+      dockerfile: Dockerfile
+    container_name: aifood-ocr-service
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  agent-api:
+    build:
+      context: ./services/agent-api
+      dockerfile: Dockerfile
+    container_name: aifood-agent-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aifood:${POSTGRES_PASSWORD:-aifood_secure_password_2024}@postgres:5432/aifood
+      REDIS_URL: redis://redis:6379/0
+      OCR_SERVICE_URL: http://ocr-service:8001
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      - postgres
+      - redis
+      - ocr-service
+    volumes:
+      - /tmp/aifood:/tmp/aifood
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
 volumes:
   aifood_postgres_data:
+    driver: local
+  aifood_redis_data:
     driver: local

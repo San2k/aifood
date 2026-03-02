@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.2.25",
+    "lastTouchedAt": "2026-03-01T13:55:49.479Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-02-24T19:50:00.000Z",
+    "lastRunVersion": "2026.2.23",
+    "lastRunCommand": "configure",
+    "lastRunMode": "local"
+  },
+  "update": {
+    "channel": "stable"
+  },
+  "auth": {
+    "profiles": {
+      "google:default": {
+        "provider": "google",
+        "mode": "api_key"
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "google/gemini-2.0-flash-exp",
+        "fallbacks": ["google/gemini-2.0-flash"]
+      },
+      "models": {
+        "google/gemini-2.0-flash-exp": {},
+        "google/gemini-2.0-flash": {}
+      },
+      "workspace": "/root/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "maxConcurrent": 4
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "hooks": {
+    "enabled": true,
+    "defaultSessionKey": "hook:ingress",
+    "allowRequestSessionKey": false,
+    "internal": {
+      "enabled": true
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "open",
+      "botToken": "REPLACE_WITH_YOUR_BOT_TOKEN",
+      "groupPolicy": "allowlist",
+      "streaming": "partial",
+      "allowFrom": [
+        "*"
+      ]
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "aifood": {
+        "enabled": true,
+        "config": {
+          "fatsecretClientId": "REPLACE_WITH_YOUR_FATSECRET_CLIENT_ID",
+          "fatsecretClientSecret": "REPLACE_WITH_YOUR_FATSECRET_CLIENT_SECRET",
+          "databaseUrl": "postgresql://aifood:YOUR_DB_PASSWORD@localhost:5433/aifood"
+        }
+      }
+    },
+    "installs": {
+      "aifood": {
+        "source": "path",
+        "sourcePath": "/opt/aifood/aifood-plugin",
+        "installPath": "/root/.openclaw/extensions/aifood",
+        "version": "1.0.0",
+        "installedAt": "2026-02-28T10:44:53.628Z"
+      }
+    }
+  }
+}

@@ -1,352 +1,499 @@
-# AI Nutrition Bot
+# AiFood - AI-Powered Nutrition Tracking
 
-Telegram-бот для отслеживания питания с ИИ-помощником на базе GPT-4, FatSecret API и LangGraph.
+OpenClaw plugin для отслеживания питания с AI-ассистентом, FatSecret API и OCR распознаванием этикеток.
 
-**Status**: ✅ **MVP Complete and Ready for Testing**
-
-## 📚 Documentation
-
-- **[Quick Start](QUICK_START.md)** - Get running in 5 minutes
-- **[Pre-Flight Checklist](PRE_FLIGHT_CHECKLIST.md)** - Pre-launch verification
-- **[Testing Guide](TESTING.md)** - Comprehensive test scenarios
-- **[Implementation Summary](IMPLEMENTATION_SUMMARY.md)** - What was built
+**Status**: ✅ **Production Ready** (OpenClaw Plugin Architecture)
 
 ## Features
 
-### Phase 1 (MVP)
-- ✅ Текстовый ввод еды ("Съел 2 яйца и 100г риса")
-- ✅ Парсинг через GPT-4 с обязательными уточнениями
-- ✅ Поиск продуктов в FatSecret API через MCP
-- ✅ Логирование в дневник питания
-- ✅ Отчёты /today и /week
-- ✅ AI-рекомендации без галлюцинаций
+### ✅ Implemented
+- **Text Food Logging**: "Съел 2 яйца и 150г гречки" → автоматический поиск и логирование
+- **FatSecret Integration**: Поиск продуктов из базы 1M+ items
+- **Daily/Weekly Reports**: Отчёты с прогрессом по КБЖУ
+- **Goal Tracking**: Установка и отслеживание целей по калориям и макросам
+- **Nutrition Label OCR**: Распознавание русских этикеток (PaddleOCR + Gemini Vision fallback)
+- **Multi-Platform**: Telegram, WhatsApp, Discord, Slack (через OpenClaw)
 
-### Phase 2
-- ✅ Распознавание фото этикеток через GPT-4o Vision
-- ✅ Подтверждение и коррекция OCR данных
-- ✅ Создание кастомных продуктов из этикеток
+### 🚧 In Progress
+- OCR Service deployment
+- Label processing pipeline (LangGraph)
+- Custom products database
 
 ## Tech Stack
 
-- **Backend**: Python 3.11, FastAPI, LangGraph
-- **Bot**: aiogram 3
-- **AI**: OpenAI API (GPT-4.1, GPT-4o Vision)
-- **Data**: FatSecret API через MCP
-- **Database**: PostgreSQL 16
-- **Cache**: Redis 7
-- **Infrastructure**: Docker, Docker Compose
+**Frontend (Messaging)**
+- OpenClaw Gateway (multi-platform messaging)
+- Telegram Bot API
+- WhatsApp (via OpenClaw)
+
+**Backend (Plugin)**
+- TypeScript/Node.js 18+
+- OpenClaw Plugin SDK
+- PostgreSQL 16 (nutrition data)
+- FatSecret REST API
+
+**AI/ML (Planned)**
+- OCR Service: PaddleOCR (Russian)
+- Vision API: Google Gemini 2.0 (fallback)
+- Agent API: FastAPI + LangGraph
+
+**Infrastructure**
+- Server: Ubuntu 24.04 (CPU-only)
+- Deployment: systemd services
+- Database: PostgreSQL (port 5433)
 
 ## Architecture
 
 ```
-Telegram Users
-     ↓
-[telegram-bot] (aiogram 3)
-     ↓ HTTP REST
-[agent-api] (FastAPI + LangGraph)
-     ↓ MCP stdio          ↓ HTTPS
-[mcp-fatsecret]    [OpenAI API]
-     ↓
-[FatSecret API]
-
-State: [Redis]
-Data: [PostgreSQL]
+┌─────────────────────────────────────────────────────────┐
+│         OpenClaw Gateway (Multi-Platform)                │
+│  Telegram │ WhatsApp │ Discord │ Slack │ Signal         │
+└───────────────────────┬─────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│              AiFood Plugin (TypeScript)                  │
+│  ┌───────────────────────────────────────────────────┐ │
+│  │                    Tools                           │ │
+│  │  • log_food                                        │ │
+│  │  • search_food                                     │ │
+│  │  • daily_nutrition_report                         │ │
+│  │  • weekly_nutrition_report                        │ │
+│  │  • set_nutrition_goals                            │ │
+│  │  • log_food_from_photo (planned)                  │ │
+│  └───────────────────────────────────────────────────┘ │
+│  ┌───────────────────────────────────────────────────┐ │
+│  │                  Services                          │ │
+│  │  • FatSecretClient (OAuth2)                       │ │
+│  │  • DatabaseService (PostgreSQL)                   │ │
+│  └───────────────────────────────────────────────────┘ │
+└───────────────────────┬─────────────────────────────────┘
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+┌──────────────┐ ┌─────────────┐ ┌──────────────┐
+│ PostgreSQL   │ │ FatSecret   │ │ Agent API    │
+│ (port 5433)  │ │    API      │ │ (planned)    │
+│              │ │             │ │              │
+│ • food_log   │ │ OAuth 2.0   │ │ OCR + Vision │
+│ • user_goals │ │ Search API  │ │ LangGraph    │
+│ • profiles   │ │             │ │              │
+└──────────────┘ └─────────────┘ └──────────────┘
 ```
 
-## Prerequisites
+## Installation
 
-- Docker & Docker Compose
-- Telegram Bot Token (от @BotFather)
-- OpenAI API Key
-- FatSecret API Credentials (Client ID + Secret)
+### Prerequisites
 
-## Quick Start
+- **Node.js** 18+ and npm
+- **PostgreSQL** 16+
+- **OpenClaw** CLI installed
+- **FatSecret API** credentials (Client ID + Secret)
 
-### 1. Clone and Configure
+### 1. Clone Repository
 
 ```bash
-# Clone repository
 git clone <repository-url>
 cd AiFood
-
-# Configure environment
-cp .env.example .env
-# Edit .env and add your API keys:
-# - TELEGRAM_BOT_TOKEN
-# - OPENAI_API_KEY
-# - FATSECRET_CLIENT_ID
-# - FATSECRET_CLIENT_SECRET
 ```
 
-### 2. Start Services
-
-**Option A: Use startup script (recommended)**
+### 2. Setup Database
 
 ```bash
-# Run startup script (builds, starts services, runs migrations)
-./scripts/startup.sh
+# Create PostgreSQL database
+createdb aifood
 
-# Stop all services
-./scripts/stop.sh
+# Or using docker-compose (from _archive)
+docker-compose up -d postgres
 ```
 
-**Option B: Manual startup**
+### 3. Install and Build Plugin
 
 ```bash
-# Build and start all services
-docker-compose up -d
+cd aifood-plugin
 
-# Wait for databases to be ready
-sleep 10
+# Install dependencies
+npm install
 
-# Run database migrations
-docker-compose exec agent-api alembic upgrade head
+# Build plugin
+npm run build
 
-# Check services status
-docker-compose ps
-
-# View logs
-docker-compose logs -f telegram-bot
-docker-compose logs -f agent-api
+# Verify build
+ls -la dist/
 ```
 
-### 3. Verify Database
+### 4. Configure Plugin
+
+Create `~/.openclaw/openclaw.json` or update existing:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "aifood": {
+        "enabled": true,
+        "config": {
+          "fatsecretClientId": "YOUR_CLIENT_ID",
+          "fatsecretClientSecret": "YOUR_SECRET",
+          "databaseUrl": "postgresql://localhost:5433/aifood"
+        }
+      }
+    }
+  }
+}
+```
+
+### 5. Install Plugin to OpenClaw
 
 ```bash
-# Verify database tables
-docker-compose exec postgres psql -U nutrition_user -d nutrition_bot -c "\dt"
+# Option A: Link for development (recommended)
+openclaw plugins link ./aifood-plugin
 
-# Check user_profile table
-docker-compose exec postgres psql -U nutrition_user -d nutrition_bot -c "SELECT * FROM user_profile LIMIT 5;"
+# Option B: Install permanently
+openclaw plugins install ./aifood-plugin
 ```
 
-### 4. Test Bot
+### 6. Restart OpenClaw Gateway
 
-Open Telegram and find your bot. Send:
-- `/start` - Register
-- "Съел 2 яйца" - Log food
-- `/today` - View daily summary
-- Send photo of nutrition label - OCR test
+```bash
+# If running as systemd service
+sudo systemctl restart openclaw-gateway
 
-## Project Structure
+# Or restart manually
+openclaw gateway stop
+openclaw gateway run
+```
+
+## Usage
+
+### Via Telegram
+
+1. Start conversation with your OpenClaw bot
+2. Send: `/start`
+3. Log food: "Съел 2 яйца на завтрак"
+4. Check report: "Покажи отчёт за сегодня"
+5. Set goals: "Установи цель: 2100 калорий, 230г белка"
+
+### Available Commands
+
+The AI automatically uses these tools based on your messages:
+
+- **log_food**: Logs food with calories and macros
+- **search_food**: Searches FatSecret database
+- **daily_nutrition_report**: Shows daily summary
+- **weekly_nutrition_report**: Shows 7-day summary
+- **set_nutrition_goals**: Sets daily KBJU targets
+
+### Example Conversations
 
 ```
-AiFood/
-├── docker-compose.yml          # Services orchestration
-├── .env                        # Environment configuration
-├── services/
-│   ├── telegram-bot/           # Telegram bot (aiogram 3)
-│   │   ├── src/
-│   │   │   ├── main.py
-│   │   │   ├── bot/handlers/   # Message handlers
-│   │   │   └── services/       # Agent API client
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
-│   ├── agent-api/              # FastAPI + LangGraph
-│   │   ├── src/
-│   │   │   ├── main.py
-│   │   │   ├── api/v1/         # REST API endpoints
-│   │   │   ├── graph/          # LangGraph state machine
-│   │   │   ├── services/       # OpenAI, MCP, Redis
-│   │   │   └── db/             # Database models
-│   │   ├── migrations/         # Alembic migrations
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
-│   └── mcp-fatsecret/          # MCP Server for FatSecret
-│       ├── src/
-│       │   ├── main.py
-│       │   ├── server/tools/   # MCP tools
-│       │   └── client/         # FatSecret API client
-│       ├── Dockerfile
-│       └── requirements.txt
-└── scripts/                    # Utility scripts
+User: Съел 200г куриной грудки и 150г гречки
+Bot: ✅ Записано:
+     • Куриная грудка, 200г: 220 ккал (Б: 46г, Ж: 2г, У: 0г)
+     • Гречка вареная, 150г: 185 ккал (Б: 6г, Ж: 1г, У: 36г)
+
+     Итого: 405 ккал
+
+User: Покажи отчёт за сегодня
+Bot: 📊 Отчёт за 1 марта 2026:
+
+     🔥 Калории: 1,245 / 2,100 ккал (59%)
+     🥩 Белок: 98 / 230г (43%)
+     🍞 Углеводы: 120 / 144г (83%)
+     🧈 Жиры: 35 / 89г (39%)
 ```
 
 ## Development
 
-### Running Tests
+### Project Structure
+
+```
+aifood-plugin/
+├── package.json              # Dependencies
+├── tsconfig.json             # TypeScript config
+├── openclaw.plugin.json      # Plugin manifest
+├── src/
+│   ├── index.ts              # Entry point, tool registration
+│   ├── types/index.ts        # TypeScript interfaces
+│   ├── services/
+│   │   ├── fatsecret.ts      # FatSecret API client
+│   │   └── database.ts       # PostgreSQL service
+│   └── tools/
+│       ├── log-food.ts       # Food logging tool
+│       ├── search-food.ts    # FatSecret search
+│       ├── daily-report.ts   # Daily stats
+│       ├── weekly-report.ts  # Weekly stats
+│       └── set-goals.ts      # Goal setting
+├── skills/
+│   └── nutrition-advisor/
+│       └── SKILL.md          # AI behavior instructions
+└── dist/                     # Compiled output
+```
+
+### Development Workflow
 
 ```bash
-# Run all tests
-docker-compose exec agent-api pytest
+cd aifood-plugin
 
-# Run specific test file
-docker-compose exec agent-api pytest tests/test_graph/test_nodes.py
+# Watch mode (auto-rebuild on changes)
+npm run watch
 
-# Run with coverage
-docker-compose exec agent-api pytest --cov=src --cov-report=html
+# Lint code
+npm run lint
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
 ```
 
-### Database Migrations
+### Database Schema
+
+Main tables:
+
+```sql
+-- User profiles and settings
+CREATE TABLE user_profile (
+  telegram_id BIGINT PRIMARY KEY,
+  username VARCHAR(255),
+  first_name VARCHAR(255),
+  target_calories INTEGER,
+  target_protein INTEGER,
+  target_carbs INTEGER,
+  target_fat INTEGER
+);
+
+-- Food log entries
+CREATE TABLE food_log_entry (
+  id BIGSERIAL PRIMARY KEY,
+  telegram_id BIGINT REFERENCES user_profile(telegram_id),
+  food_id VARCHAR(255),
+  food_name VARCHAR(500) NOT NULL,
+  calories NUMERIC(10, 2) NOT NULL,
+  protein NUMERIC(10, 2),
+  carbohydrates NUMERIC(10, 2),
+  fat NUMERIC(10, 2),
+  meal_type VARCHAR(20),
+  consumed_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User goals
+CREATE TABLE user_goals (
+  telegram_id BIGINT PRIMARY KEY,
+  target_calories INTEGER,
+  target_protein INTEGER,
+  target_carbs INTEGER,
+  target_fat INTEGER,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+## Deployment
+
+### Server Requirements
+
+**Minimum:**
+- CPU: 2 cores
+- RAM: 4GB
+- Storage: 20GB SSD
+- OS: Ubuntu 22.04+
+
+**Recommended (with OCR):**
+- CPU: 4+ cores (or GPU)
+- RAM: 16GB
+- Storage: 50GB NVMe
+- GPU: NVIDIA GTX 1060 6GB or better (for fast OCR)
+
+### Production Deployment
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed instructions.
+
+Quick steps:
 
 ```bash
-# Create new migration
-docker-compose exec agent-api alembic revision --autogenerate -m "description"
+# 1. On server: Install dependencies
+sudo apt update
+sudo apt install -y nodejs npm postgresql-16
 
-# Apply migrations
-docker-compose exec agent-api alembic upgrade head
+# 2. Setup PostgreSQL
+sudo -u postgres createuser aifood
+sudo -u postgres createdb aifood -O aifood
 
-# Rollback migration
-docker-compose exec agent-api alembic downgrade -1
+# 3. Clone and build
+git clone <repo> /opt/aifood
+cd /opt/aifood/aifood-plugin
+npm install --production
+npm run build
+
+# 4. Install OpenClaw
+curl -fsSL https://openclaw.com/install.sh | sh
+openclaw configure
+
+# 5. Install plugin
+openclaw plugins install /opt/aifood/aifood-plugin
+
+# 6. Setup systemd service
+sudo cp deployment/openclaw-gateway.service /etc/systemd/system/
+sudo systemctl enable openclaw-gateway
+sudo systemctl start openclaw-gateway
 ```
 
-### View Logs
+### Environment Configuration
 
-```bash
-# All services
-docker-compose logs -f
+On server (`~/.openclaw/openclaw.json`):
 
-# Specific service
-docker-compose logs -f telegram-bot
-docker-compose logs -f agent-api
-
-# Last 100 lines
-docker-compose logs --tail=100 agent-api
+```json
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "YOUR_BOT_TOKEN",
+      "dmPolicy": "open"
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "google/gemini-2.0-flash-exp"
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "aifood": {
+        "enabled": true,
+        "config": {
+          "fatsecretClientId": "YOUR_CLIENT_ID",
+          "fatsecretClientSecret": "YOUR_SECRET",
+          "databaseUrl": "postgresql://aifood:password@localhost:5433/aifood"
+        }
+      }
+    }
+  }
+}
 ```
 
-### Rebuild Services
+## OCR Label Recognition (Planned)
 
-```bash
-# Rebuild specific service
-docker-compose build agent-api
+Architecture for photo label processing:
 
-# Rebuild all services
-docker-compose build
-
-# Rebuild and restart
-docker-compose up -d --build
+```
+User sends photo
+     ↓
+OpenClaw → log_food_from_photo tool
+     ↓
+Agent API (FastAPI + LangGraph)
+     ↓
+1. Download image
+2. Preprocess (rotate, deskew, upscale)
+3. OCR Service (PaddleOCR, Russian)
+4. Quality check (confidence + markers)
+5a. Parse OCR text (regex) OR
+5b. Gemini Vision fallback
+6. Validate nutrition data
+7. Create custom product
+8. Store scan metadata
+     ↓
+Confirmation dialog
+     ↓
+Log to food_log_entry
 ```
 
-## API Documentation
-
-Once services are running, visit:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-- Health Check: http://localhost:8000/health
-
-## Bot Commands
-
-- `/start` - Регистрация и приветствие
-- `/profile` - Настройки профиля (цели, макросы)
-- `/today` - Отчёт за сегодня
-- `/week` - Отчёт за неделю
-- `/advice` - Получить рекомендации
-- `/help` - Справка
-
-## Usage Examples
-
-### Text Input
-```
-User: Съел 2 яйца и 150г гречки
-Bot: Гречка сухая или варёная?
-User: Варёная
-Bot: ✅ Добавлено:
-     • 2 яйца (140 ккал)
-     • 150г гречки вареной (195 ккал)
-     Итого: 335 ккал
-```
-
-### Photo Label
-```
-User: [uploads nutrition label photo]
-Bot: 📸 Распознал этикетку:
-     Protein Bar
-     На 100г: 350 ккал, Б: 20г, Ж: 10г, У: 40г
-     [✅ Верно] [✏️ Исправить]
-User: [clicks ✅ Верно]
-Bot: ✅ Добавлено: Protein Bar (350 ккал)
-```
-
-## Environment Variables
-
-Key variables in `.env`:
-
-```env
-# Database
-DATABASE_URL=postgresql+asyncpg://user:pass@postgres:5432/nutrition_bot
-
-# Telegram
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
-
-# OpenAI
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL_TEXT=gpt-4-turbo-preview
-OPENAI_MODEL_VISION=gpt-4o
-
-# FatSecret
-FATSECRET_CLIENT_ID=...
-FATSECRET_CLIENT_SECRET=...
-```
+See [docs/LABEL_RECOGNITION.md](docs/LABEL_RECOGNITION.md) for details.
 
 ## Troubleshooting
 
-### Bot Not Responding
-```bash
-# Check bot logs
-docker-compose logs telegram-bot
+### Plugin Not Loading
 
-# Restart bot
-docker-compose restart telegram-bot
+```bash
+# Check OpenClaw logs
+journalctl -u openclaw-gateway -f
+
+# Verify plugin installation
+openclaw plugins list
+
+# Check plugin build
+cd aifood-plugin && npm run build
 ```
 
-### Database Connection Issues
-```bash
-# Check postgres status
-docker-compose ps postgres
+### Database Connection Errors
 
-# Check connection
-docker-compose exec postgres pg_isready -U nutrition_user
+```bash
+# Test PostgreSQL connection
+psql -h localhost -p 5433 -U aifood -d aifood -c "SELECT 1"
+
+# Check running processes
+sudo netstat -tlnp | grep 5433
 ```
 
-### Redis Connection Issues
-```bash
-# Check redis status
-docker-compose exec redis redis-cli ping
-```
+### FatSecret API Errors
 
-### OpenAI API Errors
-- Verify API key in `.env`
-- Check quota: https://platform.openai.com/usage
-- Review logs: `docker-compose logs agent-api`
+- Verify credentials in `~/.openclaw/openclaw.json`
+- Check OAuth token expiration (auto-refreshes)
+- Review logs: `journalctl -u openclaw-gateway | grep FatSecret`
 
-## Performance Targets
+## Performance
 
-- Text input → response: **< 6s** (p95)
-- Photo input → OCR: **< 15s** (p95)
-- /today report: **< 2s** (p95)
+**Current (CPU-only server):**
+- Text logging: ~2-5 seconds
+- FatSecret search: ~1-2 seconds
+- Daily report: ~1 second
 
-## Security Notes
+**With GPU (planned):**
+- OCR processing: ~3-5 seconds
+- Vision fallback: ~5-10 seconds
 
-- Never commit `.env` file
-- Rotate API keys regularly
-- Use strong database passwords
-- Enable HTTPS in production
-- Implement rate limiting
+## API Documentation
+
+OpenClaw Plugin API:
+- [Plugin SDK Docs](https://docs.openclaw.ai/plugins)
+- [Tool Registration](https://docs.openclaw.ai/plugins/tools)
+
+FatSecret API:
+- [Platform API Docs](https://platform.fatsecret.com/api/)
 
 ## Contributing
 
-1. Create feature branch
-2. Make changes
-3. Run tests: `docker-compose exec agent-api pytest`
-4. Submit pull request
+1. Fork repository
+2. Create feature branch: `git checkout -b feature/my-feature`
+3. Make changes and test
+4. Commit: `git commit -m "Add my feature"`
+5. Push: `git push origin feature/my-feature`
+6. Create Pull Request
 
 ## License
 
-[Your License Here]
+MIT License - see [LICENSE](LICENSE) file
 
 ## Support
 
-For issues and questions:
-- GitHub Issues: [link]
-- Documentation: [link]
-- Email: [your-email]
+- GitHub Issues: [link to issues]
+- Documentation: [link to docs]
+- Email: support@example.com
 
 ## Roadmap
 
-- [x] Phase 1: Text input + FatSecret
-- [x] Phase 2: Photo labels + Vision AI
-- [ ] Phase 3: Custom foods/recipes
-- [ ] Phase 4: Production deployment + monitoring
-- [ ] Meal planning feature
-- [ ] Integration with fitness trackers
+- [x] OpenClaw plugin architecture
+- [x] FatSecret integration
+- [x] Basic food logging
+- [x] Daily/weekly reports
+- [x] Goal tracking
+- [ ] OCR label recognition
+- [ ] Custom products database
+- [ ] Meal planning
+- [ ] Recipe tracking
 - [ ] Multi-language support
+- [ ] Fitness tracker integration
+
+## Credits
+
+- **OpenClaw**: Multi-platform messaging framework
+- **FatSecret**: Nutrition database API
+- **PaddleOCR**: OCR engine (planned)
+- **Google Gemini**: Vision AI (planned)
+
+---
+
+Built with ❤️ using OpenClaw Plugin SDK

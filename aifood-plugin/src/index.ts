@@ -3,8 +3,10 @@
  * Nutrition tracking plugin
  */
 
+import { Type } from '@sinclair/typebox';
 import { DatabaseService } from './services/database.js';
 import type { PluginConfig, MealType } from './types/index.js';
+import * as fs from 'fs';
 
 interface TextContent {
   type: 'text';
@@ -16,6 +18,18 @@ interface ToolResult {
   details: Record<string, unknown>;
 }
 
+interface PluginCommandContext {
+  senderId?: string;
+  channel: string;
+  isAuthorizedSender: boolean;
+  args?: string;
+}
+
+interface PluginCommandResult {
+  text?: string;
+  markdown?: string;
+}
+
 interface OpenClawPluginApi {
   config: PluginConfig;
   pluginConfig: PluginConfig;
@@ -25,41 +39,86 @@ interface OpenClawPluginApi {
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   registerTool(tool: any, options?: { optional?: boolean }): void;
+  registerCommand(command: {
+    name: string;
+    description: string;
+    acceptsArgs?: boolean;
+    requireAuth?: boolean;
+    handler: (ctx: PluginCommandContext) => PluginCommandResult | Promise<PluginCommandResult>;
+  }): void;
 }
 
-// JSON Schema definitions (compatible with TypeBox output format)
-const LogFoodSchema = {
-  type: 'object' as const,
-  properties: {
-    foodName: { type: 'string' as const, description: 'Name of the food (e.g., "2 eggs", "chicken breast 150g")' },
-    calories: { type: 'number' as const, description: 'Calories in kcal' },
-    protein: { type: 'number' as const, description: 'Protein in grams' },
-    carbs: { type: 'number' as const, description: 'Carbohydrates in grams' },
-    fat: { type: 'number' as const, description: 'Fat in grams' },
-    fiber: { type: 'number' as const, description: 'Fiber in grams' },
-    meal: { type: 'string' as const, description: 'Meal type: breakfast, lunch, dinner, snack' },
-    date: { type: 'string' as const, description: 'Date in YYYY-MM-DD format. Defaults to today.' },
-  },
-  required: ['foodName', 'calories'] as const,
-};
+// Agent API response types
+interface ProcessLabelResponse {
+  scan_id: string;
+  status: string;
+  product?: {
+    product_id: number;
+    product_name: string;
+    brand?: string;
+    nutrition_per_100g: {
+      calories_kcal: number;
+      protein_g: number;
+      carbs_g: number;
+      fat_g: number;
+      fiber_g?: number;
+      sugar_g?: number;
+    };
+    extraction_method: string;
+    confidence: number;
+  };
+  error?: string;
+  progress: number;
+}
 
-const DailyReportSchema = {
-  type: 'object' as const,
-  properties: {
-    date: { type: 'string' as const, description: 'Date in YYYY-MM-DD format. Defaults to today.' },
-  },
-};
+interface ScanStatusResponse {
+  scan_id: string;
+  status: string;
+  progress: number;
+  product?: ProcessLabelResponse['product'];
+  error?: string;
+}
 
-const SetGoalsSchema = {
-  type: 'object' as const,
-  properties: {
-    calories: { type: 'number' as const, description: 'Daily calorie target' },
-    protein: { type: 'number' as const, description: 'Daily protein target in grams' },
-    carbs: { type: 'number' as const, description: 'Daily carbohydrate target in grams' },
-    fat: { type: 'number' as const, description: 'Daily fat target in grams' },
-    fiber: { type: 'number' as const, description: 'Daily fiber target in grams' },
-  },
-};
+interface ConfirmMessageResponse {
+  action: string;
+  entry_id?: number;
+  message: string;
+}
+
+// TypeBox Schema definitions (compatible with OpenClaw's pi-agent-core)
+const LogFoodSchema = Type.Object({
+  foodName: Type.String({ description: 'Name of the food (e.g., "2 eggs", "chicken breast 150g")' }),
+  calories: Type.Number({ description: 'Calories in kcal' }),
+  protein: Type.Optional(Type.Number({ description: 'Protein in grams' })),
+  carbs: Type.Optional(Type.Number({ description: 'Carbohydrates in grams' })),
+  fat: Type.Optional(Type.Number({ description: 'Fat in grams' })),
+  fiber: Type.Optional(Type.Number({ description: 'Fiber in grams' })),
+  meal: Type.Optional(Type.String({ description: 'Meal type: breakfast, lunch, dinner, snack' })),
+  date: Type.Optional(Type.String({ description: 'Date in YYYY-MM-DD format. Defaults to today.' })),
+});
+
+const DailyReportSchema = Type.Object({
+  date: Type.Optional(Type.String({ description: 'Date in YYYY-MM-DD format. Defaults to today.' })),
+});
+
+const SetGoalsSchema = Type.Object({
+  calories: Type.Optional(Type.Number({ description: 'Daily calorie target' })),
+  protein: Type.Optional(Type.Number({ description: 'Daily protein target in grams' })),
+  carbs: Type.Optional(Type.Number({ description: 'Daily carbohydrate target in grams' })),
+  fat: Type.Optional(Type.Number({ description: 'Daily fat target in grams' })),
+  fiber: Type.Optional(Type.Number({ description: 'Daily fiber target in grams' })),
+});
+
+const LogFoodFromPhotoSchema = Type.Object({
+  photoUrl: Type.String({ description: 'URL of the nutrition label photo' }),
+  meal: Type.Optional(Type.String({ description: 'Meal type: breakfast, lunch, dinner, snack' })),
+  date: Type.Optional(Type.String({ description: 'Date in YYYY-MM-DD format. Defaults to today.' })),
+});
+
+const ConfirmFoodFromPhotoSchema = Type.Object({
+  grams: Type.Number({ description: 'Amount consumed in grams (e.g., 150)' }),
+  meal: Type.Optional(Type.String({ description: 'Meal type: breakfast, lunch, dinner, snack' })),
+});
 
 let db: DatabaseService | null = null;
 
@@ -73,6 +132,11 @@ export default {
         type: 'string',
         description: 'PostgreSQL connection URL',
         default: 'postgresql://aifood:aifood_secure_password_2024@localhost:5433/aifood',
+      },
+      agentApiUrl: {
+        type: 'string',
+        description: 'Agent API URL for label processing',
+        default: 'http://localhost:8000',
       },
     },
   },
@@ -170,12 +234,22 @@ export default {
       },
     });
 
+    // Helper function to create progress bar
+    const createProgressBar = (current: number, target: number, width: number = 10): string => {
+      const percentage = Math.min(current / target, 1);
+      const filled = Math.round(percentage * width);
+      const empty = width - filled;
+      const bar = '█'.repeat(filled) + '░'.repeat(empty);
+      const pct = Math.round(percentage * 100);
+      return `${bar} ${pct}%`;
+    };
+
     // Register daily_nutrition_report tool
     api.registerTool({
       name: 'daily_nutrition_report',
       label: 'Daily Nutrition Report',
       description:
-        'Get nutrition summary for today or a specific date. Shows calories, protein, carbs, fat consumed.',
+        'Get nutrition summary for today or a specific date. Shows calories, protein, carbs, fat consumed with progress bars.',
       parameters: DailyReportSchema,
       async execute(
         _toolCallId: string,
@@ -189,24 +263,51 @@ export default {
         const entries = await db!.getEntriesByDate('default', targetDate);
 
         const dateStr = targetDate.toISOString().split('T')[0];
-        let message = `Nutrition report for ${dateStr}:\n`;
-        message += `Calories: ${Math.round(totals.calories)} kcal`;
+        let message = `📊 Отчёт за ${dateStr}\n\n`;
+
+        // Calories
+        message += `🔥 Калории: ${Math.round(totals.calories)}`;
         if (goals?.targetCalories) {
-          message += ` / ${goals.targetCalories} kcal (${Math.round((totals.calories / goals.targetCalories) * 100)}%)`;
+          message += ` / ${goals.targetCalories} ккал\n`;
+          message += `   ${createProgressBar(totals.calories, goals.targetCalories)}\n`;
+        } else {
+          message += ` ккал\n`;
         }
-        message += `\nProtein: ${Math.round(totals.protein)}g`;
+
+        // Protein
+        message += `\n🥩 Белок: ${Math.round(totals.protein)}`;
         if (goals?.targetProtein) {
-          message += ` / ${goals.targetProtein}g`;
+          message += ` / ${goals.targetProtein}г\n`;
+          message += `   ${createProgressBar(totals.protein, goals.targetProtein)}\n`;
+        } else {
+          message += `г\n`;
         }
-        message += `\nCarbs: ${Math.round(totals.carbohydrates)}g`;
+
+        // Carbs
+        message += `\n🍞 Углеводы: ${Math.round(totals.carbohydrates)}`;
         if (goals?.targetCarbs) {
-          message += ` / ${goals.targetCarbs}g`;
+          message += ` / ${goals.targetCarbs}г\n`;
+          message += `   ${createProgressBar(totals.carbohydrates, goals.targetCarbs)}\n`;
+        } else {
+          message += `г\n`;
         }
-        message += `\nFat: ${Math.round(totals.fat)}g`;
+
+        // Fat
+        message += `\n🧈 Жиры: ${Math.round(totals.fat)}`;
         if (goals?.targetFat) {
-          message += ` / ${goals.targetFat}g`;
+          message += ` / ${goals.targetFat}г\n`;
+          message += `   ${createProgressBar(totals.fat, goals.targetFat)}\n`;
+        } else {
+          message += `г\n`;
         }
-        message += `\n\nEntries: ${entries.length}`;
+
+        // Fiber (if goal set)
+        if (goals?.targetFiber) {
+          message += `\n🥬 Клетчатка: ${Math.round(totals.fiber)} / ${goals.targetFiber}г\n`;
+          message += `   ${createProgressBar(totals.fiber, goals.targetFiber)}\n`;
+        }
+
+        message += `\n📝 Записей: ${entries.length}`;
 
         return {
           content: [{ type: 'text', text: message }],
@@ -241,49 +342,349 @@ export default {
           fiber?: number;
         }
       ): Promise<ToolResult> {
-        const { calories, protein, carbs, fat, fiber } = params;
+        api.logger.info(`AiFood: set_nutrition_goals called with params: ${JSON.stringify(params)}`);
 
-        if (!calories && !protein && !carbs && !fat && !fiber) {
+        try {
+          const { calories, protein, carbs, fat, fiber } = params;
+
+          if (!calories && !protein && !carbs && !fat && !fiber) {
+            return {
+              content: [{ type: 'text', text: 'Please specify at least one goal (calories, protein, carbs, fat, or fiber)' }],
+              details: { success: false },
+            };
+          }
+
+          const goals = await db!.setGoals({
+            odentity: 'default',
+            targetCalories: calories,
+            targetProtein: protein,
+            targetCarbs: carbs,
+            targetFat: fat,
+            targetFiber: fiber,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+
+          let message = 'Nutrition goals updated:\n';
+          if (goals.targetCalories) message += `Calories: ${goals.targetCalories} kcal\n`;
+          if (goals.targetProtein) message += `Protein: ${goals.targetProtein}g\n`;
+          if (goals.targetCarbs) message += `Carbs: ${goals.targetCarbs}g\n`;
+          if (goals.targetFat) message += `Fat: ${goals.targetFat}g\n`;
+          if (goals.targetFiber) message += `Fiber: ${goals.targetFiber}g\n`;
+
+          api.logger.info(`AiFood: set_nutrition_goals success: ${message.trim()}`);
+
           return {
-            content: [{ type: 'text', text: 'Please specify at least one goal (calories, protein, carbs, fat, or fiber)' }],
-            details: { success: false },
+            content: [{ type: 'text', text: message.trim() }],
+            details: {
+              success: true,
+              goals: {
+                calories: goals.targetCalories,
+                protein: goals.targetProtein,
+                carbs: goals.targetCarbs,
+                fat: goals.targetFat,
+                fiber: goals.targetFiber,
+              },
+            },
+          };
+        } catch (error) {
+          api.logger.error(`AiFood: set_nutrition_goals error: ${error}`);
+          return {
+            content: [{ type: 'text', text: `Error setting goals: ${error}` }],
+            details: { success: false, error: String(error) },
           };
         }
+      },
+    });
 
-        const goals = await db!.setGoals({
-          odentity: 'default',
-          targetCalories: calories,
-          targetProtein: protein,
-          targetCarbs: carbs,
-          targetFat: fat,
-          targetFiber: fiber,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+    // Register log_food_from_photo tool
+    api.registerTool({
+      name: 'log_food_from_photo',
+      label: 'Log Food from Photo',
+      description:
+        'Process nutrition label photo to extract and log product data. Use when user sends a photo of a nutrition label.',
+      parameters: LogFoodFromPhotoSchema,
+      async execute(
+        _toolCallId: string,
+        params: {
+          photoUrl: string;
+          meal?: string;
+          date?: string;
+        }
+      ): Promise<ToolResult> {
+        const { photoUrl, meal, date } = params;
+        const agentApiUrl =
+          (config as Record<string, unknown>).agentApiUrl as string || 'http://localhost:8000';
 
-        let message = 'Nutrition goals updated:\n';
-        if (goals.targetCalories) message += `Calories: ${goals.targetCalories} kcal\n`;
-        if (goals.targetProtein) message += `Protein: ${goals.targetProtein}g\n`;
-        if (goals.targetCarbs) message += `Carbs: ${goals.targetCarbs}g\n`;
-        if (goals.targetFat) message += `Fat: ${goals.targetFat}g\n`;
-        if (goals.targetFiber) message += `Fiber: ${goals.targetFiber}g\n`;
+        api.logger.info(`AiFood: Processing nutrition label photo: ${photoUrl}`);
 
-        return {
-          content: [{ type: 'text', text: message.trim() }],
-          details: {
-            success: true,
-            goals: {
-              calories: goals.targetCalories,
-              protein: goals.targetProtein,
-              carbs: goals.targetCarbs,
-              fat: goals.targetFat,
-              fiber: goals.targetFiber,
+        try {
+          // Check if photoUrl is a local file path or a URL
+          const isLocalFile = photoUrl.startsWith('/') || photoUrl.startsWith('file://');
+          let requestBody: Record<string, unknown>;
+
+          if (isLocalFile) {
+            // Read local file and encode as base64
+            api.logger.info(`AiFood: Reading local file: ${photoUrl}`);
+            const filePath = photoUrl.replace('file://', '');
+
+            if (!fs.existsSync(filePath)) {
+              throw new Error(`File not found: ${filePath}`);
+            }
+
+            const imageBuffer = fs.readFileSync(filePath);
+            const imageBase64 = imageBuffer.toString('base64');
+
+            requestBody = {
+              odentity: 'default',
+              image_base64: imageBase64,
+              meal_type: meal,
+              consumed_at: date ? new Date(date).toISOString() : undefined,
+            };
+          } else {
+            // Use URL (original behavior)
+            requestBody = {
+              odentity: 'default',
+              photo_url: photoUrl,
+              meal_type: meal,
+              consumed_at: date ? new Date(date).toISOString() : undefined,
+            };
+          }
+
+          // Step 1: Submit photo for processing
+          const processResponse = await fetch(`${agentApiUrl}/v1/process_label`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!processResponse.ok) {
+            throw new Error(`Agent API error: ${processResponse.statusText}`);
+          }
+
+          const result = (await processResponse.json()) as ProcessLabelResponse;
+          const { scan_id, status, product, error } = result;
+
+          if (status === 'failed') {
+            api.logger.error(`AiFood: Label processing failed: ${error}`);
+            return {
+              content: [{ type: 'text', text: `Ошибка обработки этикетки: ${error}` }],
+              details: { success: false, error },
+            };
+          }
+
+          // Step 2: Poll for completion (max 30 seconds)
+          let attempts = 0;
+          const maxAttempts = 30;
+          let finalStatus = status;
+          let finalProduct = product;
+
+          while (finalStatus === 'processing' && attempts < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            attempts++;
+
+            const statusResponse = await fetch(`${agentApiUrl}/v1/scan_status/${scan_id}`);
+            if (statusResponse.ok) {
+              const statusData = (await statusResponse.json()) as ScanStatusResponse;
+              finalStatus = statusData.status;
+              finalProduct = statusData.product || finalProduct;
+            }
+          }
+
+          if (finalStatus === 'processing') {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: 'Обработка занимает больше времени, чем ожидалось. Попробуйте позже.',
+                },
+              ],
+              details: { success: false, timeout: true },
+            };
+          }
+
+          if (finalStatus === 'failed') {
+            return {
+              content: [{ type: 'text', text: `Ошибка обработки этикетки` }],
+              details: { success: false },
+            };
+          }
+
+          // Step 3: Show confirmation card
+          if (!finalProduct) {
+            return {
+              content: [{ type: 'text', text: 'Не удалось распознать продукт' }],
+              details: { success: false },
+            };
+          }
+
+          const p = finalProduct;
+          const n = p.nutrition_per_100g;
+
+          let message = `📊 Распознан продукт:\n\n`;
+          message += `**${p.product_name}**\n`;
+          if (p.brand) message += `Бренд: ${p.brand}\n`;
+          message += `\nКБЖУ на 100г:\n`;
+          message += `🔥 ${Math.round(n.calories_kcal)} ккал\n`;
+          message += `🥩 Белок: ${Math.round(n.protein_g)}г\n`;
+          message += `🍞 Углеводы: ${Math.round(n.carbs_g)}г\n`;
+          message += `🧈 Жиры: ${Math.round(n.fat_g)}г\n`;
+
+          if (n.fiber_g) {
+            message += `🥬 Клетчатка: ${Math.round(n.fiber_g)}г\n`;
+          }
+
+          message += `\n📝 Метод: ${p.extraction_method === 'paddleocr' ? 'OCR' : 'Vision AI'}\n`;
+          message += `\n✅ Для подтверждения напишите: "подтвердить 150г"\n`;
+          message += `❌ Для отмены: "отменить"`;
+
+          api.logger.info(`AiFood: Label recognized - ${p.product_name}`);
+
+          return {
+            content: [{ type: 'text', text: message }],
+            details: {
+              success: true,
+              scan_id,
+              product: p,
+              awaitingConfirmation: true,
             },
-          },
+          };
+        } catch (error) {
+          api.logger.error(`AiFood: log_food_from_photo error: ${error}`);
+          return {
+            content: [{ type: 'text', text: `Ошибка: ${error}` }],
+            details: { success: false, error: String(error) },
+          };
+        }
+      },
+    });
+
+    // Register confirm_food_from_photo tool
+    api.registerTool({
+      name: 'confirm_food_from_photo',
+      label: 'Confirm Food from Photo',
+      description:
+        'Confirm and log food from scanned nutrition label. Use when user says "подтвердить" or "confirm" after seeing label scan results.',
+      parameters: ConfirmFoodFromPhotoSchema,
+      async execute(
+        _toolCallId: string,
+        params: {
+          grams: number;
+          meal?: string;
+        }
+      ): Promise<ToolResult> {
+        const { grams, meal } = params;
+        const agentApiUrl =
+          (config as Record<string, unknown>).agentApiUrl as string || 'http://localhost:8000';
+
+        api.logger.info(`AiFood: Confirming food from photo - ${grams}g`);
+
+        try {
+          // Send confirmation message to agent API
+          const confirmResponse = await fetch(`${agentApiUrl}/v1/confirm_message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              odentity: 'default',
+              message_text: `подтвердить ${grams}г${meal ? ` ${meal}` : ''}`,
+            }),
+          });
+
+          if (!confirmResponse.ok) {
+            throw new Error(`Agent API error: ${confirmResponse.statusText}`);
+          }
+
+          const result = (await confirmResponse.json()) as ConfirmMessageResponse;
+          const { action, entry_id, message } = result;
+
+          if (action === 'confirm' && entry_id) {
+            const totals = await db!.getDailyTotals('default', new Date());
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `${message}\n\nДневной итог: ${Math.round(totals.calories)} ккал`,
+                },
+              ],
+              details: {
+                success: true,
+                entry_id,
+                dailyTotals: {
+                  calories: Math.round(totals.calories),
+                  protein: Math.round(totals.protein),
+                  carbs: Math.round(totals.carbohydrates),
+                  fat: Math.round(totals.fat),
+                },
+              },
+            };
+          } else if (action === 'cancel') {
+            return {
+              content: [{ type: 'text', text: message }],
+              details: { success: true, cancelled: true },
+            };
+          } else {
+            return {
+              content: [{ type: 'text', text: message || 'Нет ожидающего подтверждения сканирования' }],
+              details: { success: false },
+            };
+          }
+        } catch (error) {
+          api.logger.error(`AiFood: confirm_food_from_photo error: ${error}`);
+          return {
+            content: [{ type: 'text', text: `Ошибка подтверждения: ${error}` }],
+            details: { success: false, error: String(error) },
+          };
+        }
+      },
+    });
+
+    // Register /aifood help command
+    api.registerCommand({
+      name: 'aifood',
+      description: 'Show AiFood nutrition tracker help',
+      requireAuth: false,
+      handler: () => {
+        return {
+          markdown: `# 🥗 AiFood - Трекер питания
+
+## Доступные команды
+
+Просто напиши что ты ел, и я запишу это:
+- "Съел 2 яйца на завтрак"
+- "Курица 150г и рис на обед"
+- "Запиши банан"
+
+**📸 Новое! Сканирование этикеток:**
+- Отправь фото этикетки продукта
+- Я распознаю КБЖУ автоматически
+- Подтверди порцию: "подтвердить 150г"
+
+## Примеры запросов
+
+| Запрос | Что сделает |
+|--------|-------------|
+| [фото этикетки] | Распознает КБЖУ с этикетки |
+| "подтвердить 150г" | Запишет распознанный продукт |
+| "Покажи отчёт" | Покажет КБЖУ за сегодня |
+| "Отчёт за вчера" | Покажет КБЖУ за вчера |
+| "Установи цель 2000 ккал" | Установит дневную норму |
+| "Моя цель: 2100 ккал, 180г белка" | Установит несколько целей |
+
+## Инструменты
+
+- \`log_food\` - записать еду вручную
+- \`log_food_from_photo\` - распознать этикетку
+- \`confirm_food_from_photo\` - подтвердить распознанный продукт
+- \`daily_nutrition_report\` - отчёт за день
+- \`set_nutrition_goals\` - установить цели
+
+---
+*AiFood v1.0.0*`,
         };
       },
     });
 
-    api.logger.info('AiFood: Plugin registered with 3 tools');
+    api.logger.info('AiFood: Plugin registered with 5 tools and /aifood command');
   },
 };

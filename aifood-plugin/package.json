@@ -2,6 +2,7 @@
   "name": "aifood",
   "version": "1.0.0",
   "description": "OpenClaw plugin for nutrition tracking with FatSecret API",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -14,6 +15,7 @@
     "extensions": ["./dist/index.js"]
   },
   "dependencies": {
+    "@sinclair/typebox": "0.34.48",
     "pg": "^8.11.3",
     "node-fetch": "^3.3.2"
   },

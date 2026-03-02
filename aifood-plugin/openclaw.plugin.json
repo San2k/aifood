@@ -13,6 +13,11 @@
         "type": "string",
         "description": "PostgreSQL connection URL",
         "default": "postgresql://localhost:5433/aifood"
+      },
+      "agentApiUrl": {
+        "type": "string",
+        "description": "Agent API URL for label recognition",
+        "default": "http://199.247.30.52:8000"
       }
     }
   }
