@@ -111,3 +111,7 @@ DEPLOYMENT_STATUS.md
 LABEL_RECOGNITION_COMPLETE.md
 *_STATUS.md
 *_COMPLETE.md
+
+# Memory files (могут содержать API ключи и другие секреты)
+memory/
+*.md.backup

@@ -1,0 +1,39 @@
+{
+  "name": "llm-gateway",
+  "version": "1.0.0",
+  "description": "Self-hosted LLM Gateway with Token Optimization for OpenClaw",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": ["llm", "gateway", "gemini", "openclaw", "token-optimization"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "fastify": "^4.25.2",
+    "@fastify/cors": "^8.5.0",
+    "axios": "^1.6.5",
+    "ioredis": "^5.3.2",
+    "winston": "^3.11.0",
+    "tiktoken": "^1.0.10",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/uuid": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.11",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

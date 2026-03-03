@@ -50,6 +50,47 @@ services:
       retries: 3
       start_period: 40s
 
+  llm-gateway:
+    build:
+      context: ./services/llm-gateway
+      dockerfile: Dockerfile
+    container_name: aifood-llm-gateway
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      GATEWAY_PORT: 9000
+      GATEWAY_HOST: 0.0.0.0
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai/
+      GEMINI_MODEL: gemini-3-flash-preview
+      GEMINI_MODEL_PRO: gemini-3-flash-preview
+      GEMINI_TIMEOUT: 60000
+      GEMINI_RETRIES: 3
+      REDIS_URL: redis://redis:6379/1
+      HISTORY_WINDOW_TOKENS: 12000
+      HISTORY_WINDOW_MESSAGES: 8
+      SUMMARY_TRIGGER_TOKENS: 12000
+      SUMMARY_TARGET_TOKENS: 1000
+      RAG_BUDGET_TOKENS: 2000
+      CACHE_ENABLED: "true"
+      CACHE_TTL: 3600
+      QUOTA_DAILY_TOKENS: 100000
+      QUOTA_MONTHLY_USD: 50
+      LOG_LEVEL: info
+      METRICS_ENABLED: "false"
+      TRACING_ENABLED: "false"
+    depends_on:
+      - redis
+    volumes:
+      - ./services/llm-gateway/logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:9000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   agent-api:
     build:
       context: ./services/agent-api
