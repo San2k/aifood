@@ -2,7 +2,20 @@
 
 OpenClaw plugin для отслеживания питания с AI-ассистентом, FatSecret API и OCR распознаванием этикеток.
 
-**Status**: ✅ **Production Ready** (OpenClaw Plugin Architecture)
+**Status**: ✅ **Production Ready** (OpenClaw Plugin + LLM Gateway Deployed)
+
+## 🆕 Latest Update: LLM Gateway (March 3, 2026)
+- ✅ **Self-hosted LLM Gateway** deployed to production (199.247.7.186:9000)
+- ✅ **Gemini 2.5 Flash** integration with OpenAI-compatible API
+- ✅ **Token Optimization**: Sliding window + summarization (26% savings)
+- ✅ **Response Caching**: Redis-based deterministic caching
+- ✅ **Quota Tracking**: 100k tokens/day, $50/month limits
+- 📖 [Full Documentation →](services/llm-gateway/)
+
+## Quick Links
+- **[Deployment Status](DEPLOYMENT_STATUS.md)** - Current production status
+- **[LLM Gateway Docs](services/llm-gateway/README.md)** - API usage guide
+- **[Production Report](services/llm-gateway/VERIFICATION_REPORT.md)** - Deployment verification
 
 ## Features
 
