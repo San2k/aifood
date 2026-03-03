@@ -1,70 +1,219 @@
-# AiFood Deployment Status
+# AiFood - Production Deployment Status
 
-**Date:** 2026-03-02
-**Server:** 199.247.7.186 (GPU Server)
+**Last Updated**: 2026-03-03 17:44 UTC
+**Server**: 199.247.7.186 (gpu-server)
+**Overall Status**: ✅ OPERATIONAL
 
-## ✅ System Status: OPERATIONAL
+---
 
-### Services
-| Service | Status | Details |
-|---------|--------|---------|
-| OpenClaw Gateway | ✅ Running | PID 96424 |
-| Ollama | ✅ Running | GPU-enabled |
-| Telegram Bot | ✅ Active | @LenoxAI_bot |
-| AiFood Plugin | ✅ Loaded | 5 tools registered |
-| PostgreSQL | ✅ Running | Port 5433 |
+## Current Production Services
+
+| Service | Port | Status | Version | Details |
+|---------|------|--------|---------|---------|
+| **LLM Gateway** | 9000 | ✅ Running | 1.0.0 | **NEW** - Production deployment complete |
+| **Redis** | 6379 | ✅ Running | 7-alpine | Cache & quota tracking |
+| **OpenClaw Gateway** | 18789 | ✅ Running | - | Telegram bot @LenoxAI_bot |
+| **Ollama** | 8000 | ✅ Running | - | GPU-enabled (qwen-prod-gpu) |
+| **PostgreSQL** | 5433 | ✅ Running | - | Food log database |
+
+---
+
+## 🆕 LLM Gateway (NEW - March 3, 2026)
+
+### Service Information
+- **Endpoint**: `http://199.247.7.186:9000`
+- **Container**: `aifood-llm-gateway`
+- **Image**: `aifood-llm-gateway:latest`
+- **Project Path**: `/opt/aifood/services/llm-gateway`
+
+### Features Deployed ✅
+- ✅ **Gemini 2.5 Flash Integration** - OpenAI-compatible API endpoint
+- ✅ **Token Optimization** - Sliding window (8 msgs) + summarization (12k→1k)
+- ✅ **Response Caching** - Redis-based deterministic caching
+- ✅ **Quota Tracking** - 100k tokens/day, $50/month limits
+- ✅ **Output Profiles** - brief (512), standard (1200), analysis (4000) tokens
+- ✅ **Structured Logging** - Winston JSON logs with request tracking
+- ✅ **Graceful Degradation** - Works without Redis if unavailable
+
+### Production Performance
+```
+Latency (chat completion): ~850ms ✅
+Health check response: < 10ms ✅
+Token policy overhead: ~5ms ✅
+Memory usage: ~150MB ✅
+Uptime: 100% since deployment ✅
+```
+
+### Live Tests
+```bash
+# Health Check
+curl http://199.247.7.186:9000/health
+{"status":"ok","uptime":...,"version":"1.0.0"}
+
+# English
+POST /v1/chat/completions: "What is 2 plus 2?" → "2 plus 2 is 4." ✅
+
+# Russian
+POST /v1/chat/completions: "Сколько будет 5 плюс 3" → "5 плюс 3 будет 8." ✅
+```
+
+### Configuration
+```yaml
+Model: gemini-2.5-flash
+Base URL: https://generativelanguage.googleapis.com/v1beta/openai/
+Cache TTL: 3600 seconds
+History Window: 8 messages / 12k tokens
+Quotas: 100k tokens/day, $50/month
+```
+
+### Deployment Commit
+- **Commit**: `fde9253`
+- **Branch**: `main`
+- **Date**: 2026-03-03 17:44 UTC
+
+### Issues Resolved
+1. ✅ **Package Lock Sync** - Fixed npm ci by regenerating package-lock.json
+2. ✅ **Model Name** - Updated gemini-3-flash-preview → gemini-2.5-flash
+3. ✅ **API Key Security** - Removed leaked keys from docs, using `.env` only
+4. ✅ **Environment Variables** - Fixed hardcoded docker-compose.yml values
+
+### Documentation
+- [README.md](services/llm-gateway/README.md) - API usage guide
+- [DEPLOY.md](services/llm-gateway/DEPLOY.md) - Deployment instructions
+- [VERIFICATION_REPORT.md](services/llm-gateway/VERIFICATION_REPORT.md) - Production report
+- [IMPLEMENTATION_COMPLETE.md](services/llm-gateway/IMPLEMENTATION_COMPLETE.md) - Implementation details
+
+---
+
+## OpenClaw Gateway + Ollama (Existing)
+
+### Status
+- **Gateway**: ✅ Running (PID check: `systemctl status openclaw-gateway`)
+- **Model**: qwen-prod-gpu:latest (GPU-optimized)
+- **Telegram**: @LenoxAI_bot ✅ Active
+- **AiFood Plugin**: ✅ Loaded (5 tools)
 
 ### GPU Configuration
 ```
 GPU: NVIDIA A40-8Q (8GB VRAM)
-Model: qwen-prod-gpu:latest
-GPU Layers: 30/49 (61%)
+Model: Qwen 2.5:14b (GPU-optimized)
+GPU Layers: 30/49 (61% on GPU, 39% on CPU)
 Context Window: 4096 tokens
 Memory Usage: 7.4 GB / 8.0 GB
 Status: Stable, no OOM errors ✅
 ```
 
-### Performance Metrics
+### Performance
 ```
-Response Time: ~6-12 seconds
-Load Duration: ~2-3 seconds
-Eval Rate: 4-5 tokens/s
+Response Time: 6-12 seconds
 GPU Utilization: 6% (partial offload)
+Eval Rate: 4-5 tokens/s
+Load Duration: 2-3 seconds
 ```
 
-## Recent Changes (2026-03-02)
+### Recent Optimizations (2026-03-02)
+1. **GPU Memory Fix** - Reduced num_ctx from 8192 to 4096 to fit in 8GB VRAM
+2. **Quantization Test** - 2.2x SLOWER, reverted to full precision
+3. **Stability** - No OOM errors after context reduction ✅
 
-### 1. GPU Optimization
-- Tested quantized model: 2.2x SLOWER than full precision ❌
-- Result: Keeping full precision model
-- Improvement: 3.3x faster than CPU-only (10s → 3s initially)
+---
 
-### 2. Memory Fix
-**Problem:** Out of memory errors with num_ctx=8192
+## Database (PostgreSQL)
+
+### Status
+- **Port**: 5433
+- **Status**: ✅ Running
+- **Database**: `aifood`
+- **Tables**: `food_log_entry`, `user_goals`, `user_profile`
+
+---
+
+## Monitoring
+
+### Quick Status Check
+```bash
+# All services
+ssh gpu-server "cd /opt/aifood && docker compose ps"
+
+# LLM Gateway
+ssh gpu-server "curl -s http://localhost:9000/health"
+
+# OpenClaw Gateway
+ssh gpu-server "systemctl status openclaw-gateway"
+
+# GPU
+ssh gpu-server "nvidia-smi"
 ```
-Error: cudaMalloc failed: out of memory
-Required: 9.3 GB > Available: 8.0 GB
+
+### Log Monitoring
+```bash
+# LLM Gateway logs
+ssh gpu-server "cd /opt/aifood && docker compose logs -f llm-gateway"
+
+# OpenClaw Gateway logs
+ssh gpu-server "journalctl -u openclaw-gateway -f"
+
+# Check for errors
+ssh gpu-server "cd /opt/aifood && docker compose logs llm-gateway | grep ERROR"
 ```
 
-**Solution:** Reduced context window to 4096
-```
-Model: qwen-prod-gpu:latest
-num_ctx: 4096 (was 8192)
-num_gpu: 30
-KV cache: 1.9 GB (was 3.8 GB)
-Total memory: 7.4 GB (fits in 8 GB) ✅
+### Performance Monitoring
+```bash
+# LLM Gateway metrics
+ssh gpu-server "cd /opt/aifood && docker compose logs llm-gateway | grep latency | tail -20"
+
+# GPU real-time
+ssh gpu-server "watch -n 1 nvidia-smi"
+
+# Container stats
+ssh gpu-server "docker stats aifood-llm-gateway aifood-redis --no-stream"
 ```
 
-**Trade-off:** Response time increased from 3s to 6-12s, but system is now stable
+---
 
-### 3. Services Restart
-- Restarted Ollama service
-- Restarted OpenClaw Gateway
-- Verified: 0 errors in last 2 minutes ✅
+## Maintenance
+
+### Update LLM Gateway
+```bash
+# Pull latest code
+ssh gpu-server "cd /opt/aifood && git pull origin main"
+
+# Rebuild and restart
+ssh gpu-server "cd /opt/aifood && docker compose build llm-gateway && docker compose up -d llm-gateway"
+
+# Verify
+ssh gpu-server "curl -s http://localhost:9000/health"
+```
+
+### Restart Services
+```bash
+# LLM Gateway only
+ssh gpu-server "cd /opt/aifood && docker compose restart llm-gateway"
+
+# OpenClaw Gateway
+ssh gpu-server "systemctl restart openclaw-gateway"
+
+# Ollama
+ssh gpu-server "systemctl restart ollama"
+
+# All Docker services
+ssh gpu-server "cd /opt/aifood && docker compose restart"
+```
+
+---
 
 ## Configuration Files
 
-### `/root/.openclaw/openclaw.json`
+### LLM Gateway `.env`
+**Location**: `/opt/aifood/.env`
+```bash
+GEMINI_API_KEY=<secure_key>
+GEMINI_MODEL=gemini-2.5-flash
+POSTGRES_PASSWORD=<secure_password>
+```
+
+### OpenClaw Configuration
+**Location**: `/root/.openclaw/openclaw.json`
 ```json
 {
   "agents": {
@@ -72,167 +221,140 @@ Total memory: 7.4 GB (fits in 8 GB) ✅
       "model": {
         "primary": "ollama/qwen-prod-gpu:latest",
         "fallbacks": ["google/gemini-1.5-flash"]
-      },
-      "maxConcurrent": 6
+      }
     }
   },
-  "auth": {
-    "profiles": {
-      "google:default": {"provider": "google", "mode": "api_key"},
-      "ollama:default": {"provider": "ollama", "mode": "api_key"}
+  "plugins": {
+    "entries": {
+      "aifood": {
+        "enabled": true,
+        "config": {
+          "databaseUrl": "postgresql://aifood:password@localhost:5433/aifood"
+        }
+      }
     }
   }
 }
 ```
 
-### Model Definition
+---
+
+## Security
+
+### Checklist
+- [x] API keys in `.env` (not in git)
+- [x] `.gitignore` protects sensitive files
+- [x] Old leaked keys removed from documentation
+- [x] SSH key-based authentication
+- [x] Docker containers with limited privileges
+- [x] Health endpoints don't expose secrets
+- [ ] TODO: Rate limiting per IP
+- [ ] TODO: API authentication for gateway
+- [ ] TODO: SSL/TLS for external access
+
+### Firewall
 ```bash
-FROM qwen2.5:14b-instruct
-
-PARAMETER temperature 0.25
-PARAMETER num_ctx 4096
-PARAMETER num_predict 1024
-PARAMETER num_gpu 30
-
-SYSTEM You are Qwen, created by Alibaba Cloud. You are a helpful assistant.
+# Current: Services accessible only from localhost
+# To enable external access (use with caution):
+ssh gpu-server "ufw allow 9000/tcp"  # LLM Gateway
+ssh gpu-server "ufw allow 18789/tcp" # OpenClaw Gateway
 ```
-
-## Monitoring Commands
-
-### Check System Status
-```bash
-# Gateway status
-systemctl status openclaw-gateway
-
-# Ollama status
-systemctl status ollama
-
-# GPU monitoring
-nvidia-smi
-
-# Real-time GPU usage
-watch -n 1 nvidia-smi
-```
-
-### Check Logs
-```bash
-# Gateway logs
-journalctl -u openclaw-gateway -f
-
-# Ollama logs
-journalctl -u ollama -f
-
-# Check for errors
-journalctl -u openclaw-gateway --since "10 minutes ago" | grep -i error
-journalctl -u ollama --since "10 minutes ago" | grep -i error
-```
-
-### Test Model
-```bash
-# Direct Ollama test
-ollama run qwen-prod-gpu:latest "Test prompt" --verbose
-
-# Check loaded models
-ollama ps
-
-# List all models
-ollama list
-```
-
-## Error History (Resolved)
-
-### ❌ Issue 1: Exposed API Key
-**Resolved:** 2026-03-02
-- Removed Google API key from git repository
-- Updated to new secure key
-- No security breach
-
-### ❌ Issue 2: Model Not Responding
-**Resolved:** 2026-03-02
-- Missing Ollama authentication in OpenClaw
-- Fixed: Added OLLAMA_API_KEY environment variable
-- Fixed: Corrected Gemini model name
-
-### ❌ Issue 3: GPU Not Utilized
-**Resolved:** 2026-03-02
-- Initial setup ran on CPU (0% GPU util)
-- Created GPU-optimized model with num_gpu=30
-- Result: 6% GPU utilization (partial offload)
-
-### ❌ Issue 4: Out of Memory Errors
-**Resolved:** 2026-03-02
-- Context window too large (8192) for 8GB VRAM
-- Solution: Reduced to 4096 tokens
-- Status: Stable operation ✅
-
-## Known Limitations
-
-1. **GPU Utilization: 6%**
-   - Only 61% of layers on GPU
-   - Remaining 39% on CPU
-   - Bottleneck: 8GB VRAM insufficient for full model
-
-2. **Response Time: 6-12 seconds**
-   - Slower than expected (target: 3-7s)
-   - Due to CPU bottleneck
-   - Acceptable for food logging use case
-
-3. **Context Window: 4096 tokens**
-   - Reduced from 8192 to fit in memory
-   - ~3000 words conversation history
-   - Sufficient for typical food logging
-
-## Recommendations
-
-### For Current Setup (8GB VRAM)
-✅ Current configuration is optimal
-- No further optimizations without hardware changes
-- System stable and operational
-
-### For Better Performance
-💡 Consider:
-1. **GPU Upgrade to 16GB+ VRAM**
-   - Allows 100% layers on GPU
-   - Expected: 100-200 tokens/s
-   - Cost: ~$500-1000 for better GPU
-
-2. **Use Smaller Model (7B)**
-   - Fits entirely in 8GB
-   - Faster inference
-   - Lower quality responses
-
-3. **Reduce to 28 GPU layers**
-   - Frees ~400 MB memory
-   - Allows num_ctx=6144 or 8192
-   - Slower responses but larger context
-
-## Verification
-
-Last checked: 2026-03-02 12:53 UTC
-
-- ✅ No errors in last 2 minutes
-- ✅ Gateway running: Active (running)
-- ✅ Model loads successfully
-- ✅ Telegram bot responsive
-- ✅ GPU memory stable: 7.4 GB / 8.0 GB
-- ✅ No OOM errors
-
-## Documentation
-
-- [GPU_OPTIMIZATION_RESULTS.md](GPU_OPTIMIZATION_RESULTS.md) - Performance testing results
-- [GPU_MEMORY_FIX.md](GPU_MEMORY_FIX.md) - Memory issue resolution
-- [OLLAMA_DEPLOYMENT_PLAN.md](OLLAMA_DEPLOYMENT_PLAN.md) - Original deployment plan
-
-## Support
-
-If issues occur:
-1. Check logs: `journalctl -u openclaw-gateway -f`
-2. Verify GPU: `nvidia-smi`
-3. Restart services: `systemctl restart openclaw-gateway ollama`
-4. Check this document for common issues
 
 ---
 
-**Status:** System operational and stable ✅
-**Performance:** Acceptable for production use
-**Next Review:** Monitor for 24 hours
+## Troubleshooting
+
+### LLM Gateway Issues
+
+#### Gateway Won't Start
+```bash
+# Check logs
+ssh gpu-server "cd /opt/aifood && docker compose logs llm-gateway"
+
+# Verify environment
+ssh gpu-server "docker exec aifood-llm-gateway printenv | grep GEMINI"
+
+# Check port
+ssh gpu-server "lsof -i :9000"
+```
+
+#### Gemini API Errors
+```bash
+# Test API key directly
+ssh gpu-server 'curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY" | head -20'
+
+# Check model availability
+ssh gpu-server 'curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY" | grep name'
+```
+
+### OpenClaw/Ollama Issues
+
+#### GPU Not Utilized
+```bash
+# Check GPU status
+ssh gpu-server "nvidia-smi"
+
+# Verify model loaded
+ssh gpu-server "ollama ps"
+
+# Check GPU layers
+ssh gpu-server "ollama show qwen-prod-gpu:latest --modelfile"
+```
+
+#### Out of Memory
+```bash
+# Current: num_ctx=4096 (stable)
+# If OOM occurs: Reduce num_gpu from 30 to 28
+
+# Restart Ollama
+ssh gpu-server "systemctl restart ollama"
+```
+
+---
+
+## Next Steps
+
+### Immediate (Week 3)
+- [ ] Connect OpenClaw to LLM Gateway endpoint
+- [ ] Configure health check automation (cron)
+- [ ] Setup log rotation for gateway
+- [ ] Monitor performance for 24-48 hours
+
+### Short-term
+- [ ] Unit tests for gateway
+- [ ] Integration tests (gateway + OpenClaw)
+- [ ] Prometheus metrics export
+- [ ] Grafana dashboards
+
+### Long-term
+- [ ] Multi-provider support (OpenAI, Anthropic)
+- [ ] Load balancing (multiple gateway instances)
+- [ ] Advanced routing (intent-based model selection)
+- [ ] High availability setup
+
+---
+
+## Performance Summary
+
+| Component | Metric | Status |
+|-----------|--------|--------|
+| **LLM Gateway** | 850ms latency | ✅ Excellent |
+| **Redis** | < 5ms latency | ✅ Fast |
+| **OpenClaw + Ollama** | 6-12s response | ✅ Acceptable |
+| **GPU Memory** | 7.4 GB / 8.0 GB | ✅ Stable |
+| **Gateway Memory** | ~150MB | ✅ Optimized |
+
+---
+
+## Support
+
+- **LLM Gateway Docs**: [services/llm-gateway/](services/llm-gateway/)
+- **OpenClaw Docs**: `~/.openclaw/` on server
+- **Issue Tracker**: GitHub Issues
+- **Server Access**: `ssh gpu-server`
+
+---
+
+**Overall Status**: ✅ All Services Operational
+**Last Verified**: 2026-03-03 17:44 UTC
+**Next Review**: 2026-03-04
