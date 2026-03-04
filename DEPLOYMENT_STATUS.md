@@ -1,6 +1,6 @@
 # AiFood - Production Deployment Status
 
-**Last Updated**: 2026-03-04 06:17 UTC
+**Last Updated**: 2026-03-04 06:30 UTC
 **Server**: 199.247.7.186 (gpu-server)
 **Overall Status**: ✅ OPERATIONAL
 
@@ -76,7 +76,9 @@ Quotas: 100k tokens/day, $50/month
 2. ✅ **Model Name** - Updated gemini-3-flash-preview → gemini-2.5-flash
 3. ✅ **API Key Security** - Removed leaked keys from docs, using `.env` only
 4. ✅ **Environment Variables** - Fixed hardcoded docker-compose.yml values
-5. ✅ **OpenClaw API Key** (2026-03-04) - Created auth-profiles.json with Gemini API key
+5. ✅ **OpenClaw API Key** (2026-03-04) - Updated auth-profiles.json (root + agent) with new key
+6. ✅ **OpenClaw Model** (2026-03-04) - Changed gemini-1.5-flash → gemini-2.5-flash
+7. ✅ **Systemd Environment** (2026-03-04) - Added GOOGLE_API_KEY and GEMINI_API_KEY
 
 ### Documentation
 - [README.md](services/llm-gateway/README.md) - API usage guide
@@ -205,6 +207,8 @@ ssh gpu-server "cd /opt/aifood && docker compose restart"
 
 ## Configuration Files
 
+📋 **Complete Configuration Guide**: [OPENCLAW_CONFIG.md](OPENCLAW_CONFIG.md)
+
 ### LLM Gateway `.env`
 **Location**: `/opt/aifood/.env`
 ```bash
@@ -213,15 +217,23 @@ GEMINI_MODEL=gemini-2.5-flash
 POSTGRES_PASSWORD=<secure_password>
 ```
 
-### OpenClaw Configuration
-**Location**: `/root/.openclaw/openclaw.json`
+### OpenClaw Configuration Files
+
+| File | Location | Critical? |
+|------|----------|-----------|
+| Main Config | `/root/.openclaw/openclaw.json` | ✅ |
+| Root Auth | `/root/.openclaw/auth-profiles.json` | ✅ |
+| **Agent Auth** | `/root/.openclaw/agents/main/agent/auth-profiles.json` | ⚠️ **MOST IMPORTANT** |
+| Systemd Service | `/etc/systemd/system/openclaw-gateway.service` | ✅ |
+
+#### Main Config (`openclaw.json`)
 ```json
 {
   "agents": {
     "defaults": {
       "model": {
-        "primary": "ollama/qwen-prod-gpu:latest",
-        "fallbacks": ["google/gemini-1.5-flash"]
+        "primary": "google/gemini-2.5-flash",
+        "fallbacks": []
       }
     }
   },
@@ -238,15 +250,30 @@ POSTGRES_PASSWORD=<secure_password>
 }
 ```
 
-**Gemini API Authentication**: `/root/.openclaw/auth-profiles.json`
+#### Gemini API Authentication
+**Location 1** (Root): `/root/.openclaw/auth-profiles.json`
+**Location 2** (Agent): `/root/.openclaw/agents/main/agent/auth-profiles.json`
+
+⚠️ **CRITICAL**: Must update BOTH files when changing API key!
+
 ```json
 {
-  "google:default": {
-    "provider": "google",
-    "mode": "api_key",
-    "apiKey": "<secure_key>"
+  "version": 1,
+  "profiles": {
+    "google:default": {
+      "type": "api_key",
+      "provider": "google",
+      "key": "<secure_key>"
+    }
   }
 }
+```
+
+#### Systemd Environment Variables
+**Location**: `/etc/systemd/system/openclaw-gateway.service`
+```ini
+Environment="GOOGLE_API_KEY=<secure_key>"
+Environment="GEMINI_API_KEY=<secure_key>"
 ```
 
 ---
@@ -308,25 +335,49 @@ ssh gpu-server 'curl -s "https://generativelanguage.googleapis.com/v1beta/models
 # 1. Verify API key works
 ssh gpu-server 'curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY" | head -20'
 
-# 2. Check if auth-profiles.json exists
-ssh gpu-server "cat ~/.openclaw/auth-profiles.json"
+# 2. Check BOTH auth-profiles.json files (CRITICAL!)
+ssh gpu-server "cat ~/.openclaw/auth-profiles.json | grep key"
+ssh gpu-server "cat ~/.openclaw/agents/main/agent/auth-profiles.json | grep key"
 
-# 3. Create/update auth-profiles.json
+# 3. Update ROOT auth-profiles.json
 ssh gpu-server "cat > ~/.openclaw/auth-profiles.json << 'EOF'
 {
-  \"google:default\": {
-    \"provider\": \"google\",
-    \"mode\": \"api_key\",
-    \"apiKey\": \"YOUR_GEMINI_API_KEY\"
+  \"version\": 1,
+  \"profiles\": {
+    \"google:default\": {
+      \"type\": \"api_key\",
+      \"provider\": \"google\",
+      \"key\": \"YOUR_GEMINI_API_KEY\"
+    }
   }
 }
 EOF"
 
-# 4. Restart OpenClaw Gateway
+# 4. Update AGENT auth-profiles.json (MOST IMPORTANT!)
+ssh gpu-server "cat > ~/.openclaw/agents/main/agent/auth-profiles.json << 'EOF'
+{
+  \"version\": 1,
+  \"profiles\": {
+    \"google:default\": {
+      \"type\": \"api_key\",
+      \"provider\": \"google\",
+      \"key\": \"YOUR_GEMINI_API_KEY\"
+    }
+  },
+  \"usageStats\": {
+    \"google:default\": {
+      \"errorCount\": 0,
+      \"lastUsed\": $(date +%s)000
+    }
+  }
+}
+EOF"
+
+# 5. Restart OpenClaw Gateway
 ssh gpu-server "systemctl restart openclaw-gateway"
 
-# 5. Check logs
-ssh gpu-server "journalctl -u openclaw-gateway -n 50"
+# 6. Check logs for errors
+ssh gpu-server "journalctl -u openclaw-gateway --since '1 minute ago' --no-pager | grep -i error"
 ```
 
 #### GPU Not Utilized
@@ -396,5 +447,5 @@ ssh gpu-server "systemctl restart ollama"
 ---
 
 **Overall Status**: ✅ All Services Operational
-**Last Verified**: 2026-03-04 06:17 UTC
+**Last Verified**: 2026-03-04 06:30 UTC
 **Next Review**: 2026-03-05
