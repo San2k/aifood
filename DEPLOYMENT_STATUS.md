@@ -1,20 +1,35 @@
 # AiFood - Production Deployment Status
 
-**Last Updated**: 2026-03-04 07:28 UTC
-**Server**: 199.247.7.186 (gpu-server)
-**Overall Status**: ✅ OPERATIONAL
+**Last Updated**: 2026-03-04 11:15 MSK
+**Servers**:
+- **Primary (gpu-server)**: 199.247.7.186
+- **Production**: 199.247.30.52 (aifood-prod)
+**Overall Status**: ✅ OPERATIONAL (Both Servers)
 
 ---
 
 ## Current Production Services
 
+### Server 1: 199.247.7.186 (gpu-server)
+
 | Service | Port | Status | Version | Details |
 |---------|------|--------|---------|---------|
-| **LLM Gateway** | 9000 | ✅ Running | 1.0.0 | **NEW** - Production deployment complete |
+| **LLM Gateway** | 9000 | ✅ Running | 1.0.0 | Gemini proxy with token optimization |
 | **Redis** | 6379 | ✅ Running | 7-alpine | Cache & quota tracking |
 | **OpenClaw Gateway** | 18789 | ✅ Running | - | Telegram bot @LenoxAI_bot |
 | **Ollama** | 8000 | ✅ Running | - | GPU-enabled (qwen-prod-gpu) |
 | **PostgreSQL** | 5433 | ✅ Running | - | Food log database |
+
+### Server 2: 199.247.30.52 (aifood-prod) **NEW**
+
+| Service | Port | Status | Version | Details |
+|---------|------|--------|---------|---------|
+| **LLM Gateway** | 9000 | ✅ Running | 1.0.0 | Token optimization & Gemini proxy |
+| **Agent API** | 8000 | ✅ Running | 2.0.0 | FastAPI + LangGraph service |
+| **OCR Service** | 8001 | ✅ Running | 1.0.0 | PaddleOCR for receipts |
+| **Redis** | 6379 | ✅ Running | 7-alpine | Cache & sessions |
+| **PostgreSQL** | 5433 | ✅ Running | 16-alpine | Food log database |
+| **OpenClaw Gateway** | 18789 | ✅ Running | - | Telegram bot @LenoxAI_bot |
 
 ---
 
@@ -89,6 +104,164 @@ Quotas: 100k tokens/day, $50/month
 - [DEPLOY.md](services/llm-gateway/DEPLOY.md) - Deployment instructions
 - [VERIFICATION_REPORT.md](services/llm-gateway/VERIFICATION_REPORT.md) - Production report
 - [IMPLEMENTATION_COMPLETE.md](services/llm-gateway/IMPLEMENTATION_COMPLETE.md) - Implementation details
+
+---
+
+## 🆕 Production Server Deployment (NEW - March 4, 2026)
+
+### Server: 199.247.30.52 (aifood-prod)
+
+**SSH Access**: `ssh aifood-prod` (using weeek_deploy key)
+
+### Deployed Services
+
+| Service | Port | Status | Container | Details |
+|---------|------|--------|-----------|---------|
+| **LLM Gateway** | 9000 | ✅ Running | aifood-llm-gateway | Token optimization & Gemini proxy |
+| **Agent API** | 8000 | ✅ Running | aifood-agent-api | FastAPI service with LangGraph |
+| **OCR Service** | 8001 | ✅ Running | aifood-ocr-service | PaddleOCR for food receipts |
+| **Redis** | 6379 | ✅ Running | aifood-redis | Cache & sessions |
+| **PostgreSQL** | 5433 | ✅ Running | aifood-postgres | Food log database |
+| **OpenClaw Gateway** | 18789 | ✅ Running | systemd service | Telegram bot @LenoxAI_bot |
+
+### Deployment Details
+
+#### Date & Time
+- **Deployed**: 2026-03-04 11:00-11:15 MSK
+- **Code Updated**: 121 files (29 commits behind → up to date)
+- **Commit**: Latest from main branch
+
+#### Changes Made
+1. ✅ **Code Sync** - Pulled latest from GitHub (services/llm-gateway, agent-api, ocr-service)
+2. ✅ **.env Creation** - Added GEMINI_API_KEY and POSTGRES_PASSWORD
+3. ✅ **LLM Gateway Build** - Built and deployed from scratch
+4. ✅ **AiFood Plugin Update** - Rebuilt and installed with 7 tools (from 5)
+5. ✅ **OpenClaw Configuration** - Updated plugins.allow, auth-profiles.json
+6. ✅ **API Key Update** - Synced Gemini key across all configs
+
+#### Configuration Files
+
+**Environment**: `/opt/aifood/.env`
+```bash
+POSTGRES_PASSWORD=aifood_secure_password_2024
+GEMINI_API_KEY=AIzaSyC6uqHhTHaPqMg6yUxyqotbQq-SHv6hB9A
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+**OpenClaw Config**: `/root/.openclaw/openclaw.json`
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "ollama/qwen-optimized:latest",
+        "fallbacks": ["google/gemini-2.0-flash-exp"]
+      }
+    }
+  },
+  "plugins": {
+    "allow": ["aifood", "telegram"],
+    "entries": {
+      "aifood": {"enabled": true}
+    }
+  }
+}
+```
+
+**Auth Profiles**: `/root/.openclaw/agents/main/agent/auth-profiles.json`
+```json
+{
+  "profiles": {
+    "google:default": {
+      "type": "api_key",
+      "provider": "google",
+      "key": "AIzaSyC6uqHhTHaPqMg6yUxyqotbQq-SHv6hB9A"
+    }
+  }
+}
+```
+
+#### AiFood Plugin Status
+```
+Plugin: aifood
+Version: 1.0.0
+Tools: 7
+├─ log_food_entry
+├─ search_food
+├─ get_daily_nutrition_report
+├─ get_weekly_nutrition_report
+├─ set_nutrition_goals
+├─ delete_food_entry (NEW)
+└─ view_nutrition_profile (NEW)
+
+Command: /aifood
+Status: ✅ Active
+```
+
+### Service Health Checks
+
+```bash
+# LLM Gateway
+curl http://199.247.30.52:9000/health
+{"status":"ok","uptime":233.24,"version":"1.0.0"} ✅
+
+# Agent API
+curl http://199.247.30.52:8000/health
+{"status":"ok","service":"agent-api","version":"2.0.0"} ✅
+
+# OCR Service
+curl http://199.247.30.52:8001/health
+{"status":"ok","service":"ocr-service","version":"1.0.0"} ✅
+
+# OpenClaw Gateway
+systemctl status openclaw-gateway
+Active: active (running) ✅
+
+# Telegram Bot
+@LenoxAI_bot responding ✅
+```
+
+### Known Issues
+
+1. **LLM Gateway Healthcheck** - Docker healthcheck shows "unhealthy" but service works
+   - **Cause**: healthcheck command uses node -e which may fail in alpine container
+   - **Impact**: None - /health endpoint responds correctly
+   - **Action**: Monitor, may fix in future
+
+### Co-existing Services
+
+Production server also hosts:
+- **Weeek Project** (containers: weeek-*)
+- **Airflow** (scheduler, webserver)
+- **Grafana** (port 3000)
+- **Prometheus** (port 9090)
+- **MCP Server** (port 9106)
+
+All services running without conflicts. ✅
+
+### Monitoring Commands
+
+```bash
+# All AiFood containers
+ssh aifood-prod "docker ps --filter name=aifood"
+
+# Service logs
+ssh aifood-prod "docker logs -f aifood-llm-gateway"
+ssh aifood-prod "journalctl -u openclaw-gateway -f"
+
+# Database check
+ssh aifood-prod "docker exec aifood-postgres psql -U aifood -d aifood -c '\dt'"
+
+# Health check all services
+ssh aifood-prod "curl -s http://localhost:9000/health && curl -s http://localhost:8000/health && curl -s http://localhost:8001/health"
+```
+
+### Next Steps for Production Server
+- [ ] Configure automated backups for PostgreSQL
+- [ ] Setup log rotation for Docker containers
+- [ ] Enable monitoring/alerting for service health
+- [ ] Document disaster recovery procedures
+- [ ] Add SSL/TLS for external access (if needed)
 
 ---
 
