@@ -1,6 +1,6 @@
 # AiFood - Production Deployment Status
 
-**Last Updated**: 2026-03-03 17:44 UTC
+**Last Updated**: 2026-03-04 06:17 UTC
 **Server**: 199.247.7.186 (gpu-server)
 **Overall Status**: ✅ OPERATIONAL
 
@@ -76,6 +76,7 @@ Quotas: 100k tokens/day, $50/month
 2. ✅ **Model Name** - Updated gemini-3-flash-preview → gemini-2.5-flash
 3. ✅ **API Key Security** - Removed leaked keys from docs, using `.env` only
 4. ✅ **Environment Variables** - Fixed hardcoded docker-compose.yml values
+5. ✅ **OpenClaw API Key** (2026-03-04) - Created auth-profiles.json with Gemini API key
 
 ### Documentation
 - [README.md](services/llm-gateway/README.md) - API usage guide
@@ -237,6 +238,17 @@ POSTGRES_PASSWORD=<secure_password>
 }
 ```
 
+**Gemini API Authentication**: `/root/.openclaw/auth-profiles.json`
+```json
+{
+  "google:default": {
+    "provider": "google",
+    "mode": "api_key",
+    "apiKey": "<secure_key>"
+  }
+}
+```
+
 ---
 
 ## Security
@@ -288,6 +300,34 @@ ssh gpu-server 'curl -s "https://generativelanguage.googleapis.com/v1beta/models
 ```
 
 ### OpenClaw/Ollama Issues
+
+#### API Key Expired Error
+```bash
+# If OpenClaw reports "API key expired" for Gemini:
+
+# 1. Verify API key works
+ssh gpu-server 'curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY" | head -20'
+
+# 2. Check if auth-profiles.json exists
+ssh gpu-server "cat ~/.openclaw/auth-profiles.json"
+
+# 3. Create/update auth-profiles.json
+ssh gpu-server "cat > ~/.openclaw/auth-profiles.json << 'EOF'
+{
+  \"google:default\": {
+    \"provider\": \"google\",
+    \"mode\": \"api_key\",
+    \"apiKey\": \"YOUR_GEMINI_API_KEY\"
+  }
+}
+EOF"
+
+# 4. Restart OpenClaw Gateway
+ssh gpu-server "systemctl restart openclaw-gateway"
+
+# 5. Check logs
+ssh gpu-server "journalctl -u openclaw-gateway -n 50"
+```
 
 #### GPU Not Utilized
 ```bash
@@ -356,5 +396,5 @@ ssh gpu-server "systemctl restart ollama"
 ---
 
 **Overall Status**: ✅ All Services Operational
-**Last Verified**: 2026-03-03 17:44 UTC
-**Next Review**: 2026-03-04
+**Last Verified**: 2026-03-04 06:17 UTC
+**Next Review**: 2026-03-05
