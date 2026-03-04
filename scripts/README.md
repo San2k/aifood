@@ -1,80 +1,57 @@
-# Scripts Directory
+# Scripts
 
-## Available Scripts
+Automated scripts for AiFood project management.
 
-### `openclaw-quick-fix.sh`
-**Purpose**: Быстрое обновление Gemini API key во всех конфигурационных файлах OpenClaw
+## Version Management
 
-**Usage**:
+### bump-version.sh
+
+Автоматическое обновление версии проекта (Semantic Versioning).
+
+**Usage:**
 ```bash
-./scripts/openclaw-quick-fix.sh <NEW_API_KEY>
+# Bug fix (1.1.0 → 1.1.1)
+./scripts/bump-version.sh patch
+
+# New feature (1.1.0 → 1.2.0)
+./scripts/bump-version.sh minor
+
+# Breaking change (1.1.0 → 2.0.0)
+./scripts/bump-version.sh major
 ```
 
-**Example**:
+**What it does:**
+1. Updates `VERSION` file
+2. Updates all `package.json` files
+3. Creates git commit
+4. Creates annotated git tag (`v1.2.0`)
+5. Prompts you to update `CHANGELOG.md`
+
+**After running:**
 ```bash
-./scripts/openclaw-quick-fix.sh AIzaSyC68rf84Zr8a_SUTgLHiAfV8FfDktvlyNs
+# 1. Edit CHANGELOG.md with actual changes
+vim CHANGELOG.md
+
+# 2. Review changes
+git show
+
+# 3. Push to remote
+git push origin main --tags
+
+# 4. Create GitHub release (optional)
+gh release create v1.2.0 --generate-notes
 ```
 
-**What it does**:
-1. Updates `/root/.openclaw/auth-profiles.json` (root auth)
-2. Updates `/root/.openclaw/agents/main/agent/auth-profiles.json` (agent auth - CRITICAL!)
-3. Updates `/etc/systemd/system/openclaw-gateway.service` (environment variables)
-4. Reloads systemd daemon
-5. Restarts OpenClaw Gateway
-6. Checks status and logs for errors
+## Other Scripts
 
-**When to use**:
-- Gemini API key expired
-- Need to switch to a new API key
-- "API key invalid" errors in Telegram bot
+More scripts will be added here for:
+- Deployment automation
+- Database migrations
+- Testing and CI/CD
+- Production health checks
 
----
+## See Also
 
-### `setup_gpu_server_ssh.sh`
-**Purpose**: SSH setup script for GPU server access
-
-**Location**: Created when needed
-
----
-
-## Configuration Files Updated
-
-All OpenClaw configuration files are documented in:
-- [OPENCLAW_CONFIG.md](../OPENCLAW_CONFIG.md) - Complete configuration guide
-- [DEPLOYMENT_STATUS.md](../DEPLOYMENT_STATUS.md) - Deployment status and quick commands
-
-## Server Access
-
-**SSH Alias**: `gpu-server`
-**IP**: 199.247.7.186
-**User**: root
-
-```bash
-ssh gpu-server
-```
-
-## Quick Commands
-
-### Check OpenClaw Status
-```bash
-ssh gpu-server "systemctl status openclaw-gateway"
-```
-
-### View Logs
-```bash
-ssh gpu-server "journalctl -u openclaw-gateway -f"
-```
-
-### Check API Key in Use
-```bash
-ssh gpu-server "cat ~/.openclaw/agents/main/agent/auth-profiles.json | grep key"
-```
-
-### Restart OpenClaw
-```bash
-ssh gpu-server "systemctl restart openclaw-gateway"
-```
-
-## Troubleshooting
-
-See [OPENCLAW_CONFIG.md](../OPENCLAW_CONFIG.md) for detailed troubleshooting guide.
+- [VERSIONING.md](../VERSIONING.md) - Complete versioning guide
+- [CHANGELOG.md](../CHANGELOG.md) - Version history
+- [DEPLOYMENT_STATUS.md](../DEPLOYMENT_STATUS.md) - Production status
