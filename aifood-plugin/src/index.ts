@@ -160,6 +160,9 @@ export default {
       return;
     }
 
+    // Using standard OpenAI tool format
+    api.logger.info('AiFood: Using standard OpenAI tool format');
+
     // Register log_food tool
     api.registerTool({
       name: 'log_food',
