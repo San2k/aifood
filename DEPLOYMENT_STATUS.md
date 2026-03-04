@@ -1,6 +1,6 @@
 # AiFood - Production Deployment Status
 
-**Last Updated**: 2026-03-04 06:30 UTC
+**Last Updated**: 2026-03-04 07:08 UTC
 **Server**: 199.247.7.186 (gpu-server)
 **Overall Status**: ✅ OPERATIONAL
 
@@ -79,6 +79,7 @@ Quotas: 100k tokens/day, $50/month
 5. ✅ **OpenClaw API Key** (2026-03-04) - Updated auth-profiles.json (root + agent) with new key
 6. ✅ **OpenClaw Model** (2026-03-04) - Changed gemini-1.5-flash → gemini-2.5-flash
 7. ✅ **Systemd Environment** (2026-03-04) - Added GOOGLE_API_KEY and GEMINI_API_KEY
+8. ✅ **AiFood Plugin** (2026-03-04) - Removed Kimi adapter, fixed /aifood command registration
 
 ### Documentation
 - [README.md](services/llm-gateway/README.md) - API usage guide
@@ -447,5 +448,5 @@ ssh gpu-server "systemctl restart ollama"
 ---
 
 **Overall Status**: ✅ All Services Operational
-**Last Verified**: 2026-03-04 06:30 UTC
+**Last Verified**: 2026-03-04 07:08 UTC
 **Next Review**: 2026-03-05
