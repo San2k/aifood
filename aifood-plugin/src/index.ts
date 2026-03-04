@@ -642,6 +642,124 @@ export default {
       },
     });
 
+    // Register delete_food_entry tool
+    api.registerTool({
+      name: 'delete_food_entry',
+      label: 'Delete Food Entry',
+      description:
+        'Delete a food log entry by ID. Use this when the user wants to remove an incorrectly logged item.',
+      parameters: Type.Object({
+        entryId: Type.Number({ description: 'ID of the food log entry to delete' }),
+      }),
+      async execute(
+        _toolCallId: string,
+        params: {
+          entryId: number;
+        }
+      ): Promise<ToolResult> {
+        const { entryId } = params;
+
+        const deleted = await db!.deleteEntry(entryId, 'default');
+
+        if (deleted) {
+          return {
+            content: [{ type: 'text', text: `Запись #${entryId} удалена` }],
+            details: { success: true, entryId },
+          };
+        } else {
+          return {
+            content: [{ type: 'text', text: `Запись #${entryId} не найдена` }],
+            details: { success: false, entryId },
+          };
+        }
+      },
+    });
+
+    // Register view_nutrition_profile tool
+    api.registerTool({
+      name: 'view_nutrition_profile',
+      label: 'View Nutrition Profile',
+      description:
+        'View user nutrition profile with current goals and progress. Use this when user asks about their goals or profile.',
+      parameters: Type.Object({
+        date: Type.Optional(
+          Type.String({ description: 'Date in YYYY-MM-DD format, defaults to today' })
+        ),
+      }),
+      async execute(
+        _toolCallId: string,
+        params: {
+          date?: string;
+        }
+      ): Promise<ToolResult> {
+        const targetDate = params.date ? new Date(params.date) : new Date();
+        targetDate.setHours(0, 0, 0, 0);
+
+        const goals = await db!.getGoals('default');
+        const totals = await db!.getDailyTotals('default', targetDate);
+
+        let message = '📊 Профиль питания\n\n';
+
+        if (goals) {
+          message += '🎯 ЦЕЛИ:\n';
+          if (goals.targetCalories) message += `🔥 Калории: ${goals.targetCalories} ккал\n`;
+          if (goals.targetProtein) message += `🥩 Белок: ${goals.targetProtein}г\n`;
+          if (goals.targetCarbs) message += `🍞 Углеводы: ${goals.targetCarbs}г\n`;
+          if (goals.targetFat) message += `🧈 Жиры: ${goals.targetFat}г\n`;
+          if (goals.targetFiber) message += `🌾 Клетчатка: ${goals.targetFiber}г\n`;
+          message += '\n';
+        } else {
+          message += '⚠️ Цели не установлены. Используйте set_nutrition_goals для установки.\n\n';
+        }
+
+        message += '📈 ПРОГРЕСС ЗА СЕГОДНЯ:\n';
+        message += `🔥 Калории: ${Math.round(totals.calories)}`;
+        if (goals?.targetCalories) {
+          const pct = Math.round((totals.calories / goals.targetCalories) * 100);
+          message += ` / ${goals.targetCalories} (${pct}%)`;
+        }
+        message += '\n';
+
+        message += `🥩 Белок: ${Math.round(totals.protein)}г`;
+        if (goals?.targetProtein) {
+          const pct = Math.round((totals.protein / goals.targetProtein) * 100);
+          message += ` / ${goals.targetProtein}г (${pct}%)`;
+        }
+        message += '\n';
+
+        message += `🍞 Углеводы: ${Math.round(totals.carbohydrates)}г`;
+        if (goals?.targetCarbs) {
+          const pct = Math.round((totals.carbohydrates / goals.targetCarbs) * 100);
+          message += ` / ${goals.targetCarbs}г (${pct}%)`;
+        }
+        message += '\n';
+
+        message += `🧈 Жиры: ${Math.round(totals.fat)}г`;
+        if (goals?.targetFat) {
+          const pct = Math.round((totals.fat / goals.targetFat) * 100);
+          message += ` / ${goals.targetFat}г (${pct}%)`;
+        }
+        message += '\n';
+
+        message += `\n📝 Записей за день: ${totals.entries}`;
+
+        return {
+          content: [{ type: 'text', text: message }],
+          details: {
+            success: true,
+            goals: goals || {},
+            progress: {
+              calories: Math.round(totals.calories),
+              protein: Math.round(totals.protein),
+              carbs: Math.round(totals.carbohydrates),
+              fat: Math.round(totals.fat),
+              entries: totals.entries,
+            },
+          },
+        };
+      },
+    });
+
     // Register /aifood help command
     api.registerCommand({
       name: 'aifood',
@@ -669,8 +787,10 @@ export default {
 ✅ "подтвердить 150г" - Запишет продукт
 📊 "Покажи отчёт" - КБЖУ за сегодня
 📅 "Отчёт за вчера" - КБЖУ за вчера
+👤 "Мой профиль" / "Покажи прогресс" - Профиль и цели
 🎯 "Установи цель 2000 ккал" - Дневная норма
 🎯 "Моя цель: 2100 ккал, 180г белка" - Несколько целей
+🗑️ "Удали запись #5" - Удалить из журнала
 
 🔧 ИНСТРУМЕНТЫ:
 
@@ -679,6 +799,8 @@ export default {
 • confirm_food_from_photo - подтвердить продукт
 • daily_nutrition_report - отчёт за день
 • set_nutrition_goals - установить цели
+• view_nutrition_profile - просмотр профиля и прогресса
+• delete_food_entry - удалить запись из журнала
 
 ━━━━━━━━━━━━━━━━━━━━
 AiFood v1.0.0`,
@@ -686,6 +808,6 @@ AiFood v1.0.0`,
       },
     });
 
-    api.logger.info('AiFood: Plugin registered with 5 tools and /aifood command');
+    api.logger.info('AiFood: Plugin registered with 7 tools and /aifood command');
   },
 };
