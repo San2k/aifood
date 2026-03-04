@@ -5,11 +5,16 @@ OpenClaw plugin for AI-powered nutrition tracking with FatSecret API integration
 ## Features
 
 - 🍎 **Food Logging**: Log meals with automatic nutritional data lookup
+- 📸 **Photo Scanning**: Recognize nutrition labels from photos
 - 🔍 **FatSecret Search**: Access 1M+ food items database
 - 📊 **Daily Reports**: KBJU tracking and progress monitoring
 - 📈 **Weekly Trends**: 7-day nutrition analysis
 - 🎯 **Goal Setting**: Set and track daily nutrition targets
+- 👤 **Profile Management**: View goals and progress with percentages
+- 🗑️ **Entry Management**: Delete incorrect food log entries
 - 🌍 **Multi-Platform**: Works on Telegram, WhatsApp, Discord, Slack
+
+**7 AI Tools** + `/aifood` command
 
 ## Installation
 
@@ -135,6 +140,96 @@ Sets daily nutrition targets.
 - `carbs` (number, optional): Carbs target in grams
 - `fat` (number, optional): Fat target in grams
 - `fiber` (number, optional): Fiber target in grams
+
+### `view_nutrition_profile`
+
+View user nutrition profile with goals and daily progress.
+
+**Parameters:**
+- `date` (string, optional): Date in YYYY-MM-DD format, defaults to today
+
+**Response:**
+- Current goals (calories, protein, carbs, fat, fiber)
+- Today's progress with percentages
+- Number of entries logged
+
+**Example:**
+```
+📊 Профиль питания
+
+🎯 ЦЕЛИ:
+🔥 Калории: 2000 ккал
+🥩 Белок: 150г
+🍞 Углеводы: 250г
+🧈 Жиры: 70г
+
+📈 ПРОГРЕСС ЗА СЕГОДНЯ:
+🔥 Калории: 1450 / 2000 (73%)
+🥩 Белок: 85г / 150г (57%)
+🍞 Углеводы: 180г / 250г (72%)
+🧈 Жиры: 45г / 70г (64%)
+
+📝 Записей за день: 5
+```
+
+### `delete_food_entry`
+
+Delete a food log entry by ID.
+
+**Parameters:**
+- `entryId` (number, required): ID of the food log entry to delete
+
+**Response:**
+- Confirmation message with entry ID
+- Success status
+
+**Example:**
+```typescript
+{
+  "entryId": 123
+}
+// Response: "Запись #123 удалена"
+```
+
+### `log_food_from_photo`
+
+Recognize nutrition label from photo and extract nutritional data.
+
+**Parameters:**
+- `photoUrl` (string, required): URL or path to the photo
+- `meal` (string, optional): Meal type
+- `date` (string, optional): Date in YYYY-MM-DD format
+
+**Response:**
+- Extracted product information
+- Nutrition data per 100g
+- Confirmation prompt for portion size
+
+### `confirm_food_from_photo`
+
+Confirm and log food entry from previously scanned photo.
+
+**Parameters:**
+- `grams` (number, required): Amount consumed in grams
+- `meal` (string, optional): Meal type
+
+**Response:**
+- Logged entry with calculated nutrition based on portion
+- Daily totals update
+
+## Commands
+
+### `/aifood`
+
+Shows help message with available commands and examples.
+
+**Usage examples:**
+- "Съел 2 яйца на завтрак" - Log food
+- "Покажи отчёт" - Daily report
+- "Мой профиль" - View profile and progress
+- "Установи цель 2000 ккал" - Set goals
+- "Удали запись #5" - Delete entry
+- [Send photo of nutrition label] - Scan label
 
 ## Development
 

@@ -151,6 +151,46 @@ ssh gpu-server "cd /opt/aifood && git pull && docker compose build llm-gateway &
 
 ---
 
+## 🥗 AiFood Plugin Commands
+
+**Telegram Bot**: @LenoxAI_bot
+
+### Available Tools (7 total)
+
+| Tool | Description | Example |
+|------|-------------|---------|
+| `log_food` | Log food manually | "Съел 2 яйца на завтрак" |
+| `log_food_from_photo` | Scan nutrition label | [Send photo of label] |
+| `confirm_food_from_photo` | Confirm scanned item | "подтвердить 150г" |
+| `daily_nutrition_report` | Daily KBJU report | "Покажи отчёт" |
+| `set_nutrition_goals` | Set daily targets | "Цель: 2000 ккал, 150г белка" |
+| `view_nutrition_profile` | View profile & progress | "Мой профиль" |
+| `delete_food_entry` | Delete log entry | "Удали запись #5" |
+
+### Quick Commands
+
+```bash
+# View help
+/aifood
+
+# Log food
+"Съел 2 яйца и овсянку на завтрак"
+
+# Daily report
+"Покажи отчёт за сегодня"
+
+# View profile with goals
+"Мой профиль"
+
+# Set goals
+"Установи цель: 2000 ккал, 150г белка, 250г углеводов"
+
+# Delete entry (get ID from report first)
+"Удали запись #123"
+```
+
+---
+
 ## 📞 Support
 
 - **Detailed Configs**: [OPENCLAW_CONFIG.md](OPENCLAW_CONFIG.md)
