@@ -5,6 +5,60 @@ All notable changes to AiFood will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-04
+
+### Added
+- **New Tools**:
+  - `delete_food_entry`: Delete food log entries by ID
+  - `view_nutrition_profile`: View user profile with goals and daily progress
+- **LLM Gateway Service** (port 9000):
+  - Token optimization with sliding window (8 messages) and summarization (12k→1k tokens)
+  - Response caching with Redis for deterministic queries
+  - Quota tracking (100k tokens/day, $50/month limits)
+  - Output profiles (brief: 512, standard: 1200, analysis: 4000 tokens)
+  - Gemini 2.5 Flash integration via OpenAI-compatible API
+- **Production Deployment**:
+  - Deployed all services to production server (199.247.30.52)
+  - Agent API service (FastAPI + LangGraph) on port 8000
+  - OCR service (PaddleOCR) on port 8001
+  - Full Docker Compose setup with health checks
+- **Documentation**:
+  - DEPLOYMENT_STATUS.md with live service monitoring
+  - OPENCLAW_CONFIG.md with complete configuration guide
+  - Updated QUICK_REFERENCE.md with all 7 tools
+
+### Changed
+- **AiFood Plugin**: Upgraded from 5 to 7 tools
+- **Model Configuration**: Changed primary model from Ollama to Gemini 2.5 Flash
+- **Server Architecture**: Consolidated all services on production server
+- **Command Handler**: Fixed `/aifood` command response format (markdown → text)
+
+### Fixed
+- **Telegram Bot Conflict (Error 409)**: Resolved by deactivating services on gpu-server
+- **API Key Security**: Fixed leaked API keys, implemented server-only storage
+- **Kimi Adapter**: Removed incompatible Kimi adapter code
+- **Model Availability**: Fixed gemini-2.0-flash-exp → gemini-2.5-flash (stable)
+
+### Removed
+- Kimi adapter and aifood-kimi skill
+- Ollama dependency (moved to separate GPU server)
+
+### Deployment
+- **Production Server**: 199.247.30.52 (aifood-prod)
+  - LLM Gateway: ✅ Running (port 9000)
+  - Agent API: ✅ Running (port 8000)
+  - OCR Service: ✅ Running (port 8001)
+  - Redis: ✅ Running (port 6379)
+  - PostgreSQL: ✅ Running (port 5433)
+  - OpenClaw Gateway: ✅ Running (port 18789)
+  - Telegram Bot: @LenoxAI_bot ✅ Active
+- **GPU Server**: 199.247.7.186 (deactivated for AiFood, Ollama only)
+
+### Security
+- API keys stored only on server (not in Git)
+- New Gemini API key generated after leak detection
+- Environment variables isolated from version control
+
 ## [1.0.0] - 2026-03-02
 
 ### Added
