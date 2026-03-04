@@ -1,26 +1,32 @@
 # AiFood - Production Deployment Status
 
-**Last Updated**: 2026-03-04 11:15 MSK
+**Last Updated**: 2026-03-04 11:57 MSK
 **Servers**:
-- **Primary (gpu-server)**: 199.247.7.186
-- **Production**: 199.247.30.52 (aifood-prod)
-**Overall Status**: ✅ OPERATIONAL (Both Servers)
+- **Primary (gpu-server)**: 199.247.7.186 ⚠️ **DEACTIVATED** (Ollama GPU only)
+- **Production**: 199.247.30.52 (aifood-prod) ✅ **ACTIVE**
+**Overall Status**: ✅ OPERATIONAL (Production Server Only)
 
 ---
 
 ## Current Production Services
 
-### Server 1: 199.247.7.186 (gpu-server)
+### Server 1: 199.247.7.186 (gpu-server) ⚠️ **DEACTIVATED**
+
+**Status**: AiFood services deactivated. Only Ollama GPU server remains active.
 
 | Service | Port | Status | Version | Details |
 |---------|------|--------|---------|---------|
-| **LLM Gateway** | 9000 | ✅ Running | 1.0.0 | Gemini proxy with token optimization |
-| **Redis** | 6379 | ✅ Running | 7-alpine | Cache & quota tracking |
-| **OpenClaw Gateway** | 18789 | ✅ Running | - | Telegram bot @LenoxAI_bot |
+| **LLM Gateway** | 9000 | ⏸️ Stopped | 1.0.0 | Deactivated |
+| **Redis** | 6379 | ⏸️ Stopped | 7-alpine | Deactivated |
+| **OpenClaw Gateway** | 18789 | ⏸️ Stopped | - | Deactivated (moved to production) |
 | **Ollama** | 8000 | ✅ Running | - | GPU-enabled (qwen-prod-gpu) |
-| **PostgreSQL** | 5433 | ✅ Running | - | Food log database |
+| **PostgreSQL** | 5433 | ⏸️ Stopped | - | Deactivated |
 
-### Server 2: 199.247.30.52 (aifood-prod) **NEW**
+**Reason**: Telegram bot conflict (Error 409) - can only run on one server. All services moved to production server.
+
+### Server 2: 199.247.30.52 (aifood-prod) ✅ **PRIMARY PRODUCTION**
+
+**Status**: All services active. Primary production server for @LenoxAI_bot
 
 | Service | Port | Status | Version | Details |
 |---------|------|--------|---------|---------|
@@ -30,6 +36,8 @@
 | **Redis** | 6379 | ✅ Running | 7-alpine | Cache & sessions |
 | **PostgreSQL** | 5433 | ✅ Running | 16-alpine | Food log database |
 | **OpenClaw Gateway** | 18789 | ✅ Running | - | Telegram bot @LenoxAI_bot |
+
+**Telegram Bot**: ✅ Active without conflicts (Error 409 resolved)
 
 ---
 
@@ -221,9 +229,15 @@ Active: active (running) ✅
 @LenoxAI_bot responding ✅
 ```
 
-### Known Issues
+### Known Issues (Resolved)
 
-1. **LLM Gateway Healthcheck** - Docker healthcheck shows "unhealthy" but service works
+1. **Telegram Bot Conflict (Error 409)** - ✅ **RESOLVED**
+   - **Cause**: Bot was running simultaneously on both servers (gpu-server and aifood-prod)
+   - **Solution**: Stopped all OpenClaw services on gpu-server (both system and user-level systemd)
+   - **Current State**: Bot runs only on aifood-prod (199.247.30.52)
+   - **Resolution Date**: 2026-03-04 11:55 MSK
+
+2. **LLM Gateway Healthcheck** - Docker healthcheck shows "unhealthy" but service works
    - **Cause**: healthcheck command uses node -e which may fail in alpine container
    - **Impact**: None - /health endpoint responds correctly
    - **Action**: Monitor, may fix in future
