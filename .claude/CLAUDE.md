@@ -207,3 +207,4 @@ GEMINI_MODEL=gemini-2.5-flash
 @import rules/testing.md
 @import rules/architecture.md
 @import rules/dev-workflow.md
+@import rules/versioning.md
