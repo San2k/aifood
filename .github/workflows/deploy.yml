@@ -1,13 +1,24 @@
-name: Deploy to VPS
+name: Deploy to Production
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Manual trigger
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'LICENSE'
+
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild all services'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
-  PROJECT_NAME: aifood
   DEPLOY_PATH: /opt/aifood
 
 jobs:
@@ -17,48 +28,99 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-      - name: Deploy to VPS via SSH
+      - name: Detect changed files
+        id: changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+
+          PLUGIN_CHANGED=false
+          DOCKER_CHANGED=false
+
+          if echo "$CHANGED_FILES" | grep -q "^aifood-plugin/"; then
+            PLUGIN_CHANGED=true
+          fi
+
+          if echo "$CHANGED_FILES" | grep -qE "^(docker-compose|services/)"; then
+            DOCKER_CHANGED=true
+          fi
+
+          echo "plugin_changed=$PLUGIN_CHANGED" >> $GITHUB_OUTPUT
+          echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed: $CHANGED_FILES"
+
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          port: 22
           script: |
             set -e
-
-            echo "=== Deploying AiFood OpenClaw Plugin ==="
-
-            # Navigate to project directory
             cd ${{ env.DEPLOY_PATH }}
 
-            # Pull latest changes
+            echo "=== Pulling latest code ==="
             git fetch origin main
             git reset --hard origin/main
+            echo "✅ Code synced"
 
-            # Start PostgreSQL container if not running
-            if ! docker ps --format '{{.Names}}' | grep -q '^aifood-postgres$'; then
-              echo "Starting PostgreSQL container..."
-              docker compose up -d postgres
-              sleep 5
-            fi
+      - name: Rebuild Plugin
+        if: steps.changes.outputs.plugin_changed == 'true' || github.event.inputs.force_rebuild == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            cd ${{ env.DEPLOY_PATH }}/aifood-plugin
 
-            # Install dependencies and build
-            cd aifood-plugin
+            echo "=== Rebuilding AiFood Plugin ==="
             npm install
             npm run build
 
-            # Reinstall plugin to OpenClaw (if openclaw is installed)
-            if command -v openclaw &> /dev/null; then
-              openclaw plugins install ${{ env.DEPLOY_PATH }}/aifood-plugin
-              echo "Plugin reinstalled to OpenClaw"
-            else
-              echo "OpenClaw not found, skipping plugin installation"
-            fi
+            rm -rf /root/.openclaw/extensions/aifood
+            openclaw plugins install .
+            systemctl restart openclaw-gateway
 
-            echo "=== Deploy complete ==="
+            echo "✅ Plugin rebuilt and OpenClaw restarted"
 
-      - name: Notify on failure
-        if: failure()
-        run: echo "Deploy failed! Check logs."
+      - name: Rebuild Docker Services
+        if: steps.changes.outputs.docker_changed == 'true' || github.event.inputs.force_rebuild == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            cd ${{ env.DEPLOY_PATH }}
+
+            echo "=== Rebuilding Docker Services ==="
+            docker compose --env-file .env build
+            docker compose --env-file .env up -d
+
+            echo "✅ Docker services updated"
+
+      - name: Health Check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            sleep 5
+            echo "=== Health Check ==="
+
+            curl -sf http://localhost:9000/health && echo " - LLM Gateway: ✅" || echo " - LLM Gateway: ❌"
+            curl -sf http://localhost:8000/health && echo " - Agent API: ✅" || echo " - Agent API: ❌"
+            curl -sf http://localhost:8001/health && echo " - OCR Service: ✅" || echo " - OCR Service: ❌"
+            systemctl is-active --quiet openclaw-gateway && echo " - OpenClaw: ✅" || echo " - OpenClaw: ❌"
+
+            echo "=== Deploy Complete ==="
