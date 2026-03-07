@@ -1,6 +1,6 @@
 # AiFood - Production Deployment Status
 
-**Last Updated**: 2026-03-04 11:57 MSK
+**Last Updated**: 2026-03-07 16:35 MSK
 **Servers**:
 - **Primary (gpu-server)**: 199.247.7.186 ⚠️ **DEACTIVATED** (Ollama GPU only)
 - **Production**: 199.247.30.52 (aifood-prod) ✅ **ACTIVE**
@@ -151,8 +151,8 @@ Quotas: 100k tokens/day, $50/month
 
 **Environment**: `/opt/aifood/.env`
 ```bash
-POSTGRES_PASSWORD=aifood_secure_password_2024
-GEMINI_API_KEY=AIzaSyC6uqHhTHaPqMg6yUxyqotbQq-SHv6hB9A
+POSTGRES_PASSWORD=<secure_password>
+GEMINI_API_KEY=<gemini_api_key>
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
@@ -162,8 +162,7 @@ GEMINI_MODEL=gemini-2.5-flash
   "agents": {
     "defaults": {
       "model": {
-        "primary": "ollama/qwen-optimized:latest",
-        "fallbacks": ["google/gemini-2.0-flash-exp"]
+        "primary": "google/gemini-2.5-flash"
       }
     }
   },
@@ -183,7 +182,7 @@ GEMINI_MODEL=gemini-2.5-flash
     "google:default": {
       "type": "api_key",
       "provider": "google",
-      "key": "AIzaSyC6uqHhTHaPqMg6yUxyqotbQq-SHv6hB9A"
+      "key": "<GEMINI_API_KEY>"
     }
   }
 }
@@ -237,7 +236,13 @@ Active: active (running) ✅
    - **Current State**: Bot runs only on aifood-prod (199.247.30.52)
    - **Resolution Date**: 2026-03-04 11:55 MSK
 
-2. **LLM Gateway Healthcheck** - Docker healthcheck shows "unhealthy" but service works
+2. **Vision API 403 Error** - ✅ **RESOLVED**
+   - **Cause**: Agent API container had old leaked API key
+   - **Solution**: Restarted agent-api with `docker compose --env-file .env up -d agent-api`
+   - **Current State**: Gemini Vision API working correctly
+   - **Resolution Date**: 2026-03-07 16:31 MSK
+
+3. **LLM Gateway Healthcheck** - Docker healthcheck shows "unhealthy" but service works
    - **Cause**: healthcheck command uses node -e which may fail in alpine container
    - **Impact**: None - /health endpoint responds correctly
    - **Action**: Monitor, may fix in future

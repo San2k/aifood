@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **API Key Security**: Fixed leaked API keys, implemented server-only storage
 - **Kimi Adapter**: Removed incompatible Kimi adapter code
 - **Model Availability**: Fixed gemini-2.0-flash-exp → gemini-2.5-flash (stable)
+- **Vision API (2026-03-07)**: Fixed Agent API container using old leaked API key for Gemini Vision
 
 ### Removed
 - Kimi adapter and aifood-kimi skill
