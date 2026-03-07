@@ -1,6 +1,6 @@
 # AiFood — OpenClaw Nutrition Plugin
 
-**Version**: 1.1.0 | **Status**: Production
+**Version**: 1.2.0 | **Status**: Production
 
 OpenClaw плагин для отслеживания питания с AI-ассистентом, FatSecret API и OCR распознаванием этикеток.
 

@@ -4,7 +4,7 @@ AiFood follows [Semantic Versioning](https://semver.org/) (semver): `MAJOR.MINOR
 
 ## Current Version
 
-**v1.1.0** (2026-03-04)
+**v1.2.0** (2026-03-07)
 
 See [VERSION](VERSION) file or [CHANGELOG.md](CHANGELOG.md) for details.
 
@@ -152,6 +152,7 @@ gh release create v1.1.0 --generate-notes
 
 | Version | Date | Description |
 |---------|------|-------------|
+| [1.2.0](https://github.com/San2k/aifood/releases/tag/v1.2.0) | 2026-03-07 | CI/CD auto-deploy pipeline |
 | [1.1.0](https://github.com/San2k/aifood/releases/tag/v1.1.0) | 2026-03-04 | Production deployment, 7 tools, LLM Gateway |
 | [1.0.0](https://github.com/San2k/aifood/releases/tag/v1.0.0) | 2026-03-02 | OpenClaw plugin architecture, FatSecret integration |
 | 0.2.0 | 2026-02-28 | Photo recognition (archived) |

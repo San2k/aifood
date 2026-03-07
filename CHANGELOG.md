@@ -5,6 +5,29 @@ All notable changes to AiFood will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-07
+
+### Added
+- **CI/CD Pipeline**: GitHub Actions auto-deploy workflow
+  - Automatic deployment on push to `main` branch
+  - Smart change detection (plugin vs Docker services)
+  - Conditional rebuild based on changed files
+  - Health checks after deployment
+  - Manual trigger with force rebuild option
+  - Ignores documentation-only changes (`.md` files)
+
+### Changed
+- **Deployment Process**: From manual to automated
+  - Push to `main` → automatic sync to production server
+  - Plugin changes → rebuild + OpenClaw restart
+  - Docker changes → container rebuild
+
+### Infrastructure
+- **GitHub Secrets**: VPS_HOST, VPS_USER, VPS_SSH_KEY configured
+- **Workflow**: `.github/workflows/deploy.yml`
+
+---
+
 ## [1.1.0] - 2026-03-04
 
 ### Added
